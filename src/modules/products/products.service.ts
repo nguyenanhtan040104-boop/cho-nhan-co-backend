@@ -241,7 +241,7 @@ export class ProductsService {
       data: {
         title: dto.title || product.title,
         description: dto.description || product.description,
-        category: dto.category || product.category,
+        category: (dto.category || product.category) as any,
         price: dto.price ? Number(dto.price) : product.price,
         unit: dto.unit || product.unit,
         quantity: dto.quantity !== undefined ? dto.quantity : product.quantity,
