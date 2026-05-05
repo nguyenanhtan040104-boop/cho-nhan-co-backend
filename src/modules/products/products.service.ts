@@ -4,7 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';  // ← thay từ '../prisma';
+import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -33,7 +33,7 @@ export class ProductsService {
         title: dto.title,
         description: dto.description,
         category: dto.category as any,
-        price: new Prisma.Decimal(dto.price),
+        price: Number(dto.price),
         unit: dto.unit,
         quantity: dto.quantity || 1,
         location: dto.location,
@@ -104,10 +104,10 @@ export class ProductsService {
     if (query.minPrice || query.maxPrice) {
       where.price = {};
       if (query.minPrice) {
-        where.price.gte = new Prisma.Decimal(query.minPrice);
+        where.price.gte = Number(query.minPrice);
       }
       if (query.maxPrice) {
-        where.price.lte = new Prisma.Decimal(query.maxPrice);
+        where.price.lte = Number(query.maxPrice);
       }
     }
 
@@ -241,8 +241,8 @@ export class ProductsService {
       data: {
         title: dto.title || product.title,
         description: dto.description || product.description,
-        category: dto.category ? (dto.category as any) : product.category,
-        price: dto.price ? new Prisma.Decimal(dto.price) : product.price,
+        category: dto.category || product.category,
+        price: dto.price ? Number(dto.price) : product.price,
         unit: dto.unit || product.unit,
         quantity: dto.quantity !== undefined ? dto.quantity : product.quantity,
         location: dto.location || product.location,
