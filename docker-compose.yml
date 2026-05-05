@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: cho_nhan_co_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cho_nhan_co
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: StrongPassword123!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: cho_nhan_co_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # NestJS API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cho_nhan_co_api
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://admin:StrongPassword123!@postgres:5432/cho_nhan_co
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./uploads:/app/uploads
+
+volumes:
+  postgres_data:
+  redis_data:

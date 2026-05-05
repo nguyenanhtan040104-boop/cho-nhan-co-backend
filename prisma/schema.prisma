@@ -1,0 +1,469 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =================== ENUMS ===================
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum OtpType {
+  REGISTER
+  LOGIN
+  RESET_PASSWORD
+  VERIFY_PHONE
+}
+
+enum VerifyStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PostStatus {
+  ACTIVE
+  PAUSED
+  DELETED
+}
+
+enum ProductCategory {
+  NONG_SAN
+  VAT_NUOI
+  DO_DUNG_GIA_DINH
+  HANG_TIEU_DUNG
+  DICH_VU
+}
+
+enum RealEstateType {
+  NHA_O
+  DAT_NEN
+  PHONG_TRO
+  MAT_BANG
+}
+
+enum RealEstateStatus {
+  NEW
+  TRADING
+  COMPLETED
+  PAUSED
+}
+
+enum JobType {
+  EMPLOYER
+  JOB_SEEKER
+}
+
+enum ForumCategory {
+  NONG_NGHIEP
+  TRONG_TROT
+  CHAN_NUOI
+  THI_TRUONG
+  CONG_NGHE
+  KINH_NGHIEM
+  HOI_DAP
+  KINH_DOANH
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  AUDIO
+  VIDEO
+  LOCATION
+}
+
+enum NotificationType {
+  MESSAGE
+  NEW_CONTACT
+  VIP_EXPIRY
+  SECURITY
+  SYSTEM
+}
+
+enum VipPlan {
+  BASIC
+  PREMIUM
+  ENTERPRISE
+}
+
+enum PaymentMethod {
+  MOMO
+  VNPAY
+  ZALOPAY
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+// =================== USERS ===================
+
+model User {
+  id               String    @id @default(cuid())
+  email            String?   @unique
+  phone            String?   @unique
+  username         String    @unique
+  passwordHash     String
+  fullName         String
+  address          String?
+  avatarUrl        String?
+  role             Role      @default(USER)
+  isVerified       Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+
+  sessions         Session[]
+  products         Product[]
+  realEstates      RealEstate[]
+  jobs             Job[]
+  forumPosts       ForumPost[]
+  comments         Comment[]
+  sentMessages     Message[]            @relation("sender")
+  notifications    Notification[]
+  identity         UserIdentity?
+  vipSubscription  VipSubscription?
+  loginHistory     LoginHistory[]
+  conversationParticipants ConversationParticipant[]
+  savedPosts       SavedPost[]
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model UserIdentity {
+  id          String       @id @default(cuid())
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cccdFrontUrl String?
+  cccdBackUrl  String?
+  selfieUrl   String?
+  status      VerifyStatus @default(PENDING)
+  note        String?
+  verifiedAt  DateTime?
+
+  @@map("user_identities")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@map("sessions")
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  target    String
+  code      String
+  type      OtpType
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([target, type])
+  @@map("otp_codes")
+}
+
+model LoginHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?
+  userAgent String?
+  status    String
+  createdAt DateTime @default(now())
+
+  @@map("login_histories")
+}
+
+// =================== PRODUCTS ===================
+
+model Product {
+  id           String          @id @default(cuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  description  String
+  category     ProductCategory
+  price        Decimal         @db.Decimal(15, 2)
+  unit         String
+  quantity     Int?
+  location     String
+  contactPhone String?
+  images       ProductImage[]
+  status       PostStatus      @default(ACTIVE)
+  isVip        Boolean         @default(false)
+  vipExpiresAt DateTime?
+  isDeleted    Boolean         @default(false)
+  viewCount    Int             @default(0)
+  savedBy      SavedPost[]
+
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@map("products")
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int     @default(0)
+
+  @@map("product_images")
+}
+
+model SavedPost {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@map("saved_posts")
+}
+
+// =================== REAL ESTATE ===================
+
+model RealEstate {
+  id           String             @id @default(cuid())
+  userId       String
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  description  String
+  type         RealEstateType
+  price        Decimal            @db.Decimal(15, 2)
+  area         Float
+  address      String
+  latitude     Float?
+  longitude    Float?
+  legalStatus  String?
+  images       RealEstateImage[]
+  status       RealEstateStatus   @default(NEW)
+  isVip        Boolean            @default(false)
+  vipExpiresAt DateTime?
+  isDeleted    Boolean            @default(false)
+  viewCount    Int                @default(0)
+  priceHistory RealEstatePriceHistory[]
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@map("real_estates")
+}
+
+model RealEstateImage {
+  id           String     @id @default(cuid())
+  realEstateId String
+  realEstate   RealEstate @relation(fields: [realEstateId], references: [id], onDelete: Cascade)
+  url          String
+  caption      String?
+  order        Int        @default(0)
+
+  @@map("real_estate_images")
+}
+
+model RealEstatePriceHistory {
+  id           String     @id @default(cuid())
+  realEstateId String
+  realEstate   RealEstate @relation(fields: [realEstateId], references: [id], onDelete: Cascade)
+  price        Decimal    @db.Decimal(15, 2)
+  changedAt    DateTime   @default(now())
+
+  @@map("real_estate_price_histories")
+}
+
+// =================== JOBS ===================
+
+model Job {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  description  String
+  type         JobType
+  category     String
+  salary       String?
+  location     String
+  experience   String?
+  benefits     String?
+  deadline     DateTime?
+  isUrgent     Boolean    @default(false)
+  isVip        Boolean    @default(false)
+  status       PostStatus @default(ACTIVE)
+  isDeleted    Boolean    @default(false)
+  viewCount    Int        @default(0)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("jobs")
+}
+
+// =================== FORUM ===================
+
+model ForumPost {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  content     String
+  category    ForumCategory
+  tags        String[]
+  isAnonymous Boolean       @default(false)
+  isPinned    Boolean       @default(false)
+  images      ForumImage[]
+  comments    Comment[]
+  likeCount   Int           @default(0)
+  viewCount   Int           @default(0)
+  isDeleted   Boolean       @default(false)
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("forum_posts")
+}
+
+model ForumImage {
+  id        String    @id @default(cuid())
+  postId    String
+  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int       @default(0)
+
+  @@map("forum_images")
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  postId    String
+  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  parentId  String?
+  parent    Comment?  @relation("replies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("replies")
+  isPinned  Boolean   @default(false)
+  isApproved Boolean  @default(true)
+  isDeleted Boolean   @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("comments")
+}
+
+// =================== MESSAGING ===================
+
+model Conversation {
+  id           String                    @id @default(cuid())
+  messages     Message[]
+  participants ConversationParticipant[]
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isArchived     Boolean      @default(false)
+  isMuted        Boolean      @default(false)
+  isStarred      Boolean      @default(false)
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("sender", fields: [senderId], references: [id])
+  content        String?
+  type           MessageType  @default(TEXT)
+  fileUrl        String?
+  isRead         Boolean      @default(false)
+
+  createdAt      DateTime     @default(now())
+
+  @@map("messages")
+}
+
+// =================== NOTIFICATIONS ===================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      NotificationType
+  data      Json?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+// =================== VIP/PAYMENT ===================
+
+model VipSubscription {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      VipPlan
+  startDate DateTime  @default(now())
+  endDate   DateTime
+  isActive  Boolean   @default(true)
+  payments  Payment[]
+
+  @@map("vip_subscriptions")
+}
+
+model Payment {
+  id             String          @id @default(cuid())
+  subscriptionId String
+  subscription   VipSubscription @relation(fields: [subscriptionId], references: [id])
+  amount         Decimal         @db.Decimal(15, 2)
+  method         PaymentMethod
+  status         PaymentStatus   @default(PENDING)
+  transactionId  String?
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+
+  @@map("payments")
+}
