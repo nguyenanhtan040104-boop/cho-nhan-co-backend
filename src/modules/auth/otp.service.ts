@@ -16,7 +16,7 @@ export class OtpService {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
-    });
+    } as any);
   }
 
   async generateAndSendOtp(email: string): Promise<void> {
