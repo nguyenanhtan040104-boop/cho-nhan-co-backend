@@ -50,7 +50,6 @@ export class ForumService {
         orderBy: [{ isPinned: 'desc' }, orderBy],
         skip, take: limit,
         include: {
-          images: { take: 1 },
           user: { select: { id: true, username: true, avatarUrl: true } },
           _count: { select: { comments: true } },
         },
@@ -58,7 +57,6 @@ export class ForumService {
       this.prisma.forumPost.count({ where }),
     ]);
 
-    // Ẩn thông tin user nếu bài ẩn danh
     const mapped = data.map(post => ({
       ...post,
       user: post.isAnonymous ? null : post.user,
@@ -71,7 +69,6 @@ export class ForumService {
     const post = await this.prisma.forumPost.findFirst({
       where: { id, isDeleted: false },
       include: {
-        images: { orderBy: { order: 'asc' } },
         user: { select: { id: true, username: true, avatarUrl: true, isVerified: true } },
         comments: {
           where: { isDeleted: false, parentId: null, isApproved: true },
@@ -100,9 +97,7 @@ export class ForumService {
       data: {
         ...rest,
         userId,
-        images: images?.length
-          ? { create: images.map((url, i) => ({ url, order: i })) }
-          : undefined,
+        images: images || [],
       },
     });
   }
@@ -112,7 +107,6 @@ export class ForumService {
     if (!post) throw new NotFoundException();
     if (post.userId !== userId) throw new ForbiddenException();
 
-    // Chỉ được edit trong 24h
     const hoursSinceCreation = (Date.now() - post.createdAt.getTime()) / (1000 * 60 * 60);
     if (hoursSinceCreation > 24) {
       throw new BadRequestException('Chỉ được chỉnh sửa bài viết trong vòng 24 giờ');
@@ -121,7 +115,7 @@ export class ForumService {
     const { images, ...rest } = dto;
     return this.prisma.forumPost.update({
       where: { id },
-      data: rest,
+      data: images !== undefined ? { ...rest, images } : rest,
     });
   }
 

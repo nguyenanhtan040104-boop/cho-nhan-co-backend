@@ -10,7 +10,6 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OtpType } from '../../common/enums';
 import * as bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
 import {
   RegisterDto,
   LoginDto,
@@ -35,37 +34,26 @@ export class AuthService {
       throw new BadRequestException('Phải cung cấp email hoặc số điện thoại');
     }
 
-    // Kiểm tra trùng
     if (dto.email) {
       const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
       if (existing) throw new ConflictException('Email đã được sử dụng');
     }
-    if (dto.phone) {
-      const existing = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
-      if (existing) throw new ConflictException('Số điện thoại đã được sử dụng');
-    }
-    const existingUsername = await this.prisma.user.findUnique({
-      where: { username: dto.username },
-    });
-    if (existingUsername) throw new ConflictException('Username đã được sử dụng');
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
     const user = await this.prisma.user.create({
       data: {
-        email: dto.email,
-        phone: dto.phone,
-        username: dto.username,
-        passwordHash,
+        email: dto.email ?? null,
+        phone: dto.phone ?? null,
+        password: passwordHash,
         fullName: dto.fullName,
         address: dto.address,
-        isVerified: false,
+        isEmailVerified: false,
       },
     });
 
-    // Gửi OTP
-    const target = dto.phone || dto.email!;
-    await this.otpService.sendOtp(target, OtpType.REGISTER);
+    const target = dto.email || dto.phone!;
+    await this.otpService.generateAndSendOtp(target);
 
     return {
       message: `Mã OTP đã được gửi đến ${target}. Vui lòng xác thực để kích hoạt tài khoản.`,
@@ -74,14 +62,12 @@ export class AuthService {
   }
 
   // =================== ĐĂNG NHẬP ===================
-  async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
-    // Tìm user bằng email, phone hoặc username
+  async login(dto: LoginDto) {
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
           { email: dto.identifier },
           { phone: dto.identifier },
-          { username: dto.identifier },
         ],
       },
     });
@@ -90,36 +76,26 @@ export class AuthService {
       throw new UnauthorizedException('Thông tin đăng nhập không đúng');
     }
 
-    const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    const passwordValid = await bcrypt.compare(dto.password, user.password);
     if (!passwordValid) {
-      // Ghi lịch sử đăng nhập thất bại
-      await this.prisma.loginHistory.create({
-        data: { userId: user.id, ipAddress, userAgent, status: 'failed' },
-      });
       throw new UnauthorizedException('Thông tin đăng nhập không đúng');
     }
 
-    if (!user.isActive) {
+    if (user.status !== 'active') {
       throw new UnauthorizedException('Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.');
     }
 
-    if (!user.isVerified) {
+    if (!user.isEmailVerified) {
       throw new UnauthorizedException('Tài khoản chưa được xác thực. Vui lòng xác thực OTP.');
     }
 
-    // Ghi lịch sử đăng nhập thành công
-    await this.prisma.loginHistory.create({
-      data: { userId: user.id, ipAddress, userAgent, status: 'success' },
-    });
-
-    return this.generateTokens(user.id, user.role, ipAddress, userAgent);
+    return this.generateTokens(user.id, user.role);
   }
 
   // =================== XÁC THỰC OTP ===================
   async verifyOtp(dto: VerifyOtpDto) {
-    await this.otpService.verifyOtp(dto.target, dto.code, dto.type);
+    await this.otpService.verifyOtp(dto.target, dto.code);
 
-    // Kích hoạt tài khoản nếu là OTP đăng ký
     if (dto.type === OtpType.REGISTER) {
       const user = await this.prisma.user.findFirst({
         where: {
@@ -129,7 +105,7 @@ export class AuthService {
       if (user) {
         await this.prisma.user.update({
           where: { id: user.id },
-          data: { isVerified: true },
+          data: { isEmailVerified: true },
         });
         return this.generateTokens(user.id, user.role);
       }
@@ -140,27 +116,18 @@ export class AuthService {
 
   // =================== REFRESH TOKEN ===================
   async refreshToken(token: string) {
-    const session = await this.prisma.session.findUnique({
-      where: { refreshToken: token },
-      include: { user: true },
-    });
+    try {
+      const payload = this.jwt.verify(token, {
+        secret: this.config.get('JWT_REFRESH_SECRET'),
+      }) as { sub: string };
 
-    if (!session || session.expiresAt < new Date()) {
+      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+      if (!user) throw new Error('User not found');
+
+      return this.generateTokens(user.id, user.role);
+    } catch {
       throw new UnauthorizedException('Refresh token không hợp lệ hoặc đã hết hạn');
     }
-
-    // Rotate refresh token
-    const newRefreshToken = uuidv4();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    await this.prisma.session.update({
-      where: { id: session.id },
-      data: { refreshToken: newRefreshToken, expiresAt },
-    });
-
-    const accessToken = this.signAccessToken(session.userId, session.user.role);
-    return { accessToken, refreshToken: newRefreshToken };
   }
 
   // =================== QUÊN MẬT KHẨU ===================
@@ -169,9 +136,8 @@ export class AuthService {
       where: { OR: [{ email: target }, { phone: target }] },
     });
 
-    // Không thông báo user không tồn tại (bảo mật)
     if (user) {
-      await this.otpService.sendOtp(target, OtpType.RESET_PASSWORD);
+      await this.otpService.generateAndSendOtp(target);
     }
 
     return { message: 'Nếu tài khoản tồn tại, mã OTP sẽ được gửi đến bạn.' };
@@ -179,7 +145,7 @@ export class AuthService {
 
   // =================== ĐẶT LẠI MẬT KHẨU ===================
   async resetPassword(dto: ResetPasswordDto) {
-    await this.otpService.verifyOtp(dto.target, dto.code, OtpType.RESET_PASSWORD);
+    await this.otpService.verifyOtp(dto.target, dto.code);
 
     const user = await this.prisma.user.findFirst({
       where: { OR: [{ email: dto.target }, { phone: dto.target }] },
@@ -190,11 +156,8 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.newPassword, 12);
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash },
+      data: { password: passwordHash },
     });
-
-    // Xóa tất cả sessions
-    await this.prisma.session.deleteMany({ where: { userId: user.id } });
 
     return { message: 'Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập lại.' };
   }
@@ -204,82 +167,34 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Tài khoản không tồn tại');
 
-    const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    const valid = await bcrypt.compare(dto.currentPassword, user.password);
     if (!valid) throw new BadRequestException('Mật khẩu hiện tại không đúng');
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 12);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash },
+      data: { password: passwordHash },
     });
-
-    // Xóa tất cả sessions khác
-    await this.prisma.session.deleteMany({ where: { userId } });
 
     return { message: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.' };
   }
 
-  // =================== ĐĂNG XUẤT ===================
-  async logout(refreshToken: string) {
-    await this.prisma.session.deleteMany({ where: { refreshToken } });
-    return { message: 'Đăng xuất thành công' };
-  }
-
-  async logoutAll(userId: string) {
-    await this.prisma.session.deleteMany({ where: { userId } });
-    return { message: 'Đã đăng xuất khỏi tất cả thiết bị' };
-  }
-
-  // =================== SESSIONS ===================
-  async getSessions(userId: string) {
-    return this.prisma.session.findMany({
-      where: { userId },
-      select: { id: true, userAgent: true, ipAddress: true, createdAt: true, expiresAt: true },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  async deleteSession(userId: string, sessionId: string) {
-    await this.prisma.session.deleteMany({
-      where: { id: sessionId, userId },
-    });
-    return { message: 'Đã xóa phiên đăng nhập' };
-  }
-
-  async getLoginHistory(userId: string) {
-    return this.prisma.loginHistory.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
-  }
-
   // =================== HELPERS ===================
-  private signAccessToken(userId: string, role: string) {
-    return this.jwt.sign(
+  async generateTokens(userId: string, role: string) {
+    const accessToken = this.jwt.sign(
       { sub: userId, role },
       {
         secret: this.config.get('JWT_SECRET'),
-        expiresIn: this.config.get('JWT_EXPIRES_IN'),
+        expiresIn: this.config.get('JWT_EXPIRES_IN') || '15m',
       },
     );
-  }
-
-  private async generateTokens(
-    userId: string,
-    role: string,
-    ipAddress?: string,
-    userAgent?: string,
-  ) {
-    const accessToken = this.signAccessToken(userId, role);
-    const refreshToken = uuidv4();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    await this.prisma.session.create({
-      data: { userId, refreshToken, ipAddress, userAgent, expiresAt },
-    });
-
+    const refreshToken = this.jwt.sign(
+      { sub: userId },
+      {
+        secret: this.config.get('JWT_REFRESH_SECRET'),
+        expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN') || '7d',
+      },
+    );
     return { accessToken, refreshToken };
   }
 }

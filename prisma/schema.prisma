@@ -7,157 +7,48 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =================== ENUMS ===================
-
-enum Role {
-  USER
-  MODERATOR
-  ADMIN
-}
-
-enum OtpType {
-  REGISTER
-  LOGIN
-  RESET_PASSWORD
-  VERIFY_PHONE
-}
-
-enum VerifyStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-enum PostStatus {
-  ACTIVE
-  PAUSED
-  DELETED
-}
-
-enum ProductCategory {
-  NONG_SAN
-  VAT_NUOI
-  DO_DUNG_GIA_DINH
-  HANG_TIEU_DUNG
-  DICH_VU
-}
-
-enum RealEstateType {
-  NHA_O
-  DAT_NEN
-  PHONG_TRO
-  MAT_BANG
-}
-
-enum RealEstateStatus {
-  NEW
-  TRADING
-  COMPLETED
-  PAUSED
-}
-
-enum JobType {
-  EMPLOYER
-  JOB_SEEKER
-}
-
-enum ForumCategory {
-  NONG_NGHIEP
-  TRONG_TROT
-  CHAN_NUOI
-  THI_TRUONG
-  CONG_NGHE
-  KINH_NGHIEM
-  HOI_DAP
-  KINH_DOANH
-}
-
-enum MessageType {
-  TEXT
-  IMAGE
-  FILE
-  AUDIO
-  VIDEO
-  LOCATION
-}
-
-enum NotificationType {
-  MESSAGE
-  NEW_CONTACT
-  VIP_EXPIRY
-  SECURITY
-  SYSTEM
-}
-
-enum VipPlan {
-  BASIC
-  PREMIUM
-  ENTERPRISE
-}
-
-enum PaymentMethod {
-  MOMO
-  VNPAY
-  ZALOPAY
-  BANK_TRANSFER
-}
-
-enum PaymentStatus {
-  PENDING
-  SUCCESS
-  FAILED
-  REFUNDED
-}
-
-// =================== USERS ===================
-
 model User {
-  id               String    @id @default(cuid())
-  email            String?   @unique
-  phone            String?   @unique
-  username         String    @unique
-  passwordHash     String
-  fullName         String
-  address          String?
-  avatarUrl        String?
-  role             Role      @default(USER)
-  isVerified       Boolean   @default(false)
-  isActive         Boolean   @default(true)
-  twoFactorEnabled Boolean   @default(false)
-  twoFactorSecret  String?
+  id                       String    @id @default(cuid())
+  email                    String?   @unique
+  phone                    String?   @unique
+  username                 String?   @unique
+  password                 String
+  fullName                 String?
+  avatar                   String?
+  avatarUrl                String?
+  address                  String?
+  isEmailVerified          Boolean   @default(false)
+  isPhoneVerified          Boolean   @default(false)
+  isVerified               Boolean   @default(false)
+  isActive                 Boolean   @default(true)
+  twoFactorEnabled         Boolean   @default(false)
+  role                     String    @default("user")
+  status                   String    @default("active")
 
-  sessions         Session[]
-  products         Product[]
-  realEstates      RealEstate[]
-  jobs             Job[]
-  forumPosts       ForumPost[]
-  comments         Comment[]
-  sentMessages     Message[]            @relation("sender")
-  notifications    Notification[]
-  identity         UserIdentity?
-  vipSubscription  VipSubscription?
-  loginHistory     LoginHistory[]
+  products                 Product[]
+  realEstates              RealEstate[]
+  jobs                     Job[]
+  forumPosts               ForumPost[]
+  comments                 Comment[]
+  sentMessages             Message[]
+  notifications            Notification[]
+  reviews                  Review[]
+  sessions                 Session[]
+  loginHistories           LoginHistory[]
+  vipSubscription          VipSubscription?
+  identity                 UserIdentity?
   conversationParticipants ConversationParticipant[]
-  savedPosts       SavedPost[]
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  @@map("users")
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 }
 
-model UserIdentity {
-  id          String       @id @default(cuid())
-  userId      String       @unique
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cccdFrontUrl String?
-  cccdBackUrl  String?
-  selfieUrl   String?
-  status      VerifyStatus @default(PENDING)
-  note        String?
-  verifiedAt  DateTime?
-
-  @@map("user_identities")
+model OTP {
+  email     String   @id
+  code      String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
 }
 
 model Session {
@@ -165,26 +56,12 @@ model Session {
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   refreshToken String   @unique
-  userAgent    String?
   ipAddress    String?
+  userAgent    String?
   expiresAt    DateTime
   createdAt    DateTime @default(now())
 
-  @@map("sessions")
-}
-
-model OtpCode {
-  id        String   @id @default(cuid())
-  target    String
-  code      String
-  type      OtpType
-  expiresAt DateTime
-  isUsed    Boolean  @default(false)
-  attempts  Int      @default(0)
-  createdAt DateTime @default(now())
-
-  @@index([target, type])
-  @@map("otp_codes")
+  @@index([userId])
 }
 
 model LoginHistory {
@@ -196,200 +73,224 @@ model LoginHistory {
   status    String
   createdAt DateTime @default(now())
 
-  @@map("login_histories")
+  @@index([userId])
 }
 
-// =================== PRODUCTS ===================
+model VipSubscription {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      String
+  startDate DateTime @default(now())
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserIdentity {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cccdFrontUrl String
+  cccdBackUrl  String
+  selfieUrl    String
+  status       String    @default("PENDING")
+  verifiedAt   DateTime?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
 
 model Product {
-  id           String          @id @default(cuid())
-  userId       String
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
   title        String
-  description  String
-  category     ProductCategory
-  price        Decimal         @db.Decimal(15, 2)
-  unit         String
-  quantity     Int?
-  location     String
+  description  String?
+  price        Decimal   @db.Decimal(10, 2)
+  category     String
+  quantity     Int       @default(1)
+  unit         String    @default("cái")
+  location     String?
   contactPhone String?
-  images       ProductImage[]
-  status       PostStatus      @default(ACTIVE)
-  isVip        Boolean         @default(false)
+  status       String    @default("active")
+  isDeleted    Boolean   @default(false)
+  viewCount    Int       @default(0)
+  isVip        Boolean   @default(false)
   vipExpiresAt DateTime?
-  isDeleted    Boolean         @default(false)
-  viewCount    Int             @default(0)
-  savedBy      SavedPost[]
 
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("products")
+  images       ProductImage[]
+  reviews      Review[]
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([category])
+  @@index([status])
+  @@index([isDeleted])
 }
 
 model ProductImage {
-  id        String  @id @default(cuid())
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  url       String
-  order     Int     @default(0)
-
-  @@map("product_images")
-}
-
-model SavedPost {
   id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int      @default(0)
+
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
 
-  @@unique([userId, productId])
-  @@map("saved_posts")
+  @@index([productId])
 }
 
-// =================== REAL ESTATE ===================
-
 model RealEstate {
-  id           String             @id @default(cuid())
-  userId       String
-  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title        String
-  description  String
-  type         RealEstateType
-  price        Decimal            @db.Decimal(15, 2)
-  area         Float
-  address      String
-  latitude     Float?
-  longitude    Float?
-  legalStatus  String?
-  images       RealEstateImage[]
-  status       RealEstateStatus   @default(NEW)
-  isVip        Boolean            @default(false)
-  vipExpiresAt DateTime?
-  isDeleted    Boolean            @default(false)
-  viewCount    Int                @default(0)
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  price       Decimal   @db.Decimal(10, 2)
+  area        Decimal   @db.Decimal(8, 2)
+  location    String?
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  legalStatus String?
+  type        String
+  status      String    @default("active")
+  isDeleted   Boolean   @default(false)
+  viewCount   Int       @default(0)
+  isVip       Boolean   @default(false)
+
+  userId      String
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  images      RealEstateImage[]
   priceHistory RealEstatePriceHistory[]
 
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  @@map("real_estates")
+  @@index([userId])
+  @@index([type])
+  @@index([isDeleted])
 }
 
 model RealEstateImage {
   id           String     @id @default(cuid())
-  realEstateId String
-  realEstate   RealEstate @relation(fields: [realEstateId], references: [id], onDelete: Cascade)
   url          String
   caption      String?
   order        Int        @default(0)
 
-  @@map("real_estate_images")
+  realEstateId String
+  realEstate   RealEstate @relation(fields: [realEstateId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime   @default(now())
+
+  @@index([realEstateId])
 }
 
 model RealEstatePriceHistory {
   id           String     @id @default(cuid())
-  realEstateId String
-  realEstate   RealEstate @relation(fields: [realEstateId], references: [id], onDelete: Cascade)
-  price        Decimal    @db.Decimal(15, 2)
+  price        Decimal    @db.Decimal(10, 2)
   changedAt    DateTime   @default(now())
 
-  @@map("real_estate_price_histories")
-}
+  realEstateId String
+  realEstate   RealEstate @relation(fields: [realEstateId], references: [id], onDelete: Cascade)
 
-// =================== JOBS ===================
+  @@index([realEstateId])
+}
 
 model Job {
-  id           String     @id @default(cuid())
-  userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title        String
-  description  String
-  type         JobType
-  category     String
-  salary       String?
-  location     String
-  experience   String?
-  benefits     String?
-  deadline     DateTime?
-  isUrgent     Boolean    @default(false)
-  isVip        Boolean    @default(false)
-  status       PostStatus @default(ACTIVE)
-  isDeleted    Boolean    @default(false)
-  viewCount    Int        @default(0)
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  type           String?
+  category       String?
+  salary         String?
+  location       String
+  employmentType String    @default("full-time")
+  experience     String?
+  benefits       String?
+  deadline       DateTime?
+  status         String    @default("active")
+  isDeleted      Boolean   @default(false)
+  viewCount      Int       @default(0)
+  isUrgent       Boolean   @default(false)
+  isVip          Boolean   @default(false)
 
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("jobs")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([isDeleted])
 }
-
-// =================== FORUM ===================
 
 model ForumPost {
-  id          String        @id @default(cuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
   title       String
   content     String
-  category    ForumCategory
+  category    String
   tags        String[]
-  isAnonymous Boolean       @default(false)
-  isPinned    Boolean       @default(false)
-  images      ForumImage[]
+  images      String[]
+  views       Int       @default(0)
+  viewCount   Int       @default(0)
+  likeCount   Int       @default(0)
+  isAnonymous Boolean   @default(false)
+  isPinned    Boolean   @default(false)
+  isDeleted   Boolean   @default(false)
+  status      String    @default("active")
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   comments    Comment[]
-  likeCount   Int           @default(0)
-  viewCount   Int           @default(0)
-  isDeleted   Boolean       @default(false)
 
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  @@map("forum_posts")
-}
-
-model ForumImage {
-  id        String    @id @default(cuid())
-  postId    String
-  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  url       String
-  order     Int       @default(0)
-
-  @@map("forum_images")
+  @@index([userId])
+  @@index([category])
+  @@index([isDeleted])
 }
 
 model Comment {
-  id        String    @id @default(cuid())
-  postId    String
-  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  content   String
-  parentId  String?
-  parent    Comment?  @relation("replies", fields: [parentId], references: [id])
-  replies   Comment[] @relation("replies")
-  isPinned  Boolean   @default(false)
-  isApproved Boolean  @default(true)
-  isDeleted Boolean   @default(false)
+  id         String    @id @default(cuid())
+  content    String
+  isDeleted  Boolean   @default(false)
+  isPinned   Boolean   @default(false)
+  isApproved Boolean   @default(true)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  postId     String
+  post       ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  @@map("comments")
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  parentId   String?
+  parent     Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies    Comment[] @relation("CommentReplies")
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([postId])
+  @@index([userId])
+  @@index([parentId])
 }
-
-// =================== MESSAGING ===================
 
 model Conversation {
   id           String                    @id @default(cuid())
-  messages     Message[]
   participants ConversationParticipant[]
+  messages     Message[]
   createdAt    DateTime                  @default(now())
   updatedAt    DateTime                  @updatedAt
-
-  @@map("conversations")
 }
 
 model ConversationParticipant {
@@ -404,66 +305,63 @@ model ConversationParticipant {
   lastReadAt     DateTime?
 
   @@unique([conversationId, userId])
-  @@map("conversation_participants")
+  @@index([userId])
+  @@index([conversationId])
 }
 
 model Message {
   id             String       @id @default(cuid())
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  senderId       String
-  sender         User         @relation("sender", fields: [senderId], references: [id])
   content        String?
-  type           MessageType  @default(TEXT)
+  type           String       @default("TEXT")
   fileUrl        String?
   isRead         Boolean      @default(false)
 
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
   createdAt      DateTime     @default(now())
 
-  @@map("messages")
+  @@index([conversationId])
+  @@index([senderId])
 }
-
-// =================== NOTIFICATIONS ===================
 
 model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
   title     String
-  body      String
-  type      NotificationType
+  message   String?
+  body      String?
+  type      String
+  isRead    Boolean  @default(false)
+  relatedId String?
   data      Json?
-  isRead    Boolean          @default(false)
-  createdAt DateTime         @default(now())
 
-  @@map("notifications")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
 }
 
-// =================== VIP/PAYMENT ===================
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String?
 
-model VipSubscription {
-  id        String    @id @default(cuid())
-  userId    String    @unique
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan      VipPlan
-  startDate DateTime  @default(now())
-  endDate   DateTime
-  isActive  Boolean   @default(true)
-  payments  Payment[]
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@map("vip_subscriptions")
-}
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-model Payment {
-  id             String          @id @default(cuid())
-  subscriptionId String
-  subscription   VipSubscription @relation(fields: [subscriptionId], references: [id])
-  amount         Decimal         @db.Decimal(15, 2)
-  method         PaymentMethod
-  status         PaymentStatus   @default(PENDING)
-  transactionId  String?
-  metadata       Json?
-  createdAt      DateTime        @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("payments")
+  @@unique([productId, authorId])
+  @@index([productId])
+  @@index([authorId])
 }
