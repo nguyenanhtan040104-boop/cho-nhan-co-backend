@@ -118,17 +118,26 @@ export class AuthController {
   }
 
   /**
-   * POST /auth/login - Đăng nhập
+   * POST /auth/login - Đăng nhập (nhận email, phone hoặc identifier)
    */
   @Post('login')
-  async login(@Body() body: { email: string; password: string }) {
-    const { email, password } = body;
+  async login(@Body() body: { email?: string; identifier?: string; password: string }) {
+    const identifier = body.identifier || body.email;
+    const { password } = body;
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       throw new BadRequestException('Email và password là bắt buộc');
     }
 
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: identifier },
+          { phone: identifier },
+          { username: identifier },
+        ],
+      },
+    });
 
     if (!user) {
       throw new BadRequestException('Email hoặc password sai');
