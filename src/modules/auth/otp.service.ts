@@ -26,15 +26,20 @@ export class OtpService {
 
     try {
       if (process.env.RESEND_API_KEY) {
-        await this.resend.emails.send({
-          from: 'Chợ Nhân Cơ <onboarding@resend.dev>',
+        const result = await this.resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || 'Chợ Nhân Cơ <onboarding@resend.dev>',
           to: email,
           subject: '🔐 Mã xác nhận Chợ Nhân Cơ',
           html: this.getEmailTemplate(otp),
         });
-        console.log(`[OTP] Email sent to ${email}`);
+        if (result.error) {
+          console.error(`[OTP] Resend error for ${email}:`, JSON.stringify(result.error));
+          console.log(`[OTP Fallback] Code: ${otp}`);
+        } else {
+          console.log(`[OTP] Email sent to ${email}, id: ${result.data?.id}`);
+        }
       } else {
-        console.log(`[OTP] ${email} -> Code: ${otp} (expires in 10 min)`);
+        console.log(`[OTP] No RESEND_API_KEY — Code: ${otp} (expires in 10 min)`);
       }
     } catch (error) {
       console.error('[Email Error]', error.message);
