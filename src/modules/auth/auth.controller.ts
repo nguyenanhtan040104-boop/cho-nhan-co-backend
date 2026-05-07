@@ -13,61 +13,84 @@ export class AuthController {
   ) {}
 
   /**
-   * POST /auth/register - Đăng ký + gửi OTP
+   * POST /auth/register - Đăng ký bằng username + password (email tùy chọn)
    */
   @Post('register')
   async register(
     @Body()
     body: {
-      email: string;
+      username: string;
       password: string;
       confirmPassword?: string;
       fullName?: string;
+      email?: string;
     },
   ) {
-    const { email, password, confirmPassword, fullName } = body;
+    const { username, password, confirmPassword, fullName, email } = body;
 
-    if (!email || !password) {
-      throw new BadRequestException('Email và password là bắt buộc');
+    if (!username || !password) {
+      throw new BadRequestException('Tên đăng nhập và mật khẩu là bắt buộc');
+    }
+
+    if (username.length < 3) {
+      throw new BadRequestException('Tên đăng nhập phải ít nhất 3 ký tự');
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      throw new BadRequestException('Tên đăng nhập chỉ được chứa chữ cái, số và dấu _');
     }
 
     if (password !== confirmPassword) {
-      throw new BadRequestException('Password không khớp');
+      throw new BadRequestException('Mật khẩu không khớp');
     }
 
     if (password.length < 6) {
-      throw new BadRequestException('Password phải ít nhất 6 ký tự');
+      throw new BadRequestException('Mật khẩu phải ít nhất 6 ký tự');
     }
 
-    const existing = await this.prisma.user.findUnique({ where: { email } });
+    // Kiểm tra username đã tồn tại chưa
+    const existingUsername = await this.prisma.user.findUnique({ where: { username } });
+    if (existingUsername) {
+      throw new BadRequestException('Tên đăng nhập này đã được sử dụng');
+    }
 
-    if (existing && existing.isEmailVerified) {
-      throw new BadRequestException('Email này đã được đăng ký');
+    // Kiểm tra email nếu có
+    if (email) {
+      const existingEmail = await this.prisma.user.findUnique({ where: { email } });
+      if (existingEmail) {
+        throw new BadRequestException('Email này đã được đăng ký');
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Nếu đã tồn tại nhưng chưa verify → cập nhật password + gửi lại OTP
-    const user = existing
-      ? await this.prisma.user.update({
-          where: { email },
-          data: { password: hashedPassword, fullName: fullName || existing.fullName },
-        })
-      : await this.prisma.user.create({
-          data: {
-            email,
-            password: hashedPassword,
-            fullName: fullName || 'User',
-            isEmailVerified: false,
-          },
-        });
+    const user = await this.prisma.user.create({
+      data: {
+        username,
+        password: hashedPassword,
+        fullName: fullName || username,
+        email: email || null,
+        isEmailVerified: false,
+      },
+    });
 
-    await this.otpService.generateAndSendOtp(email);
+    // Nếu có email → gửi OTP xác thực (không bắt buộc)
+    if (email) {
+      this.otpService.generateAndSendOtp(email).catch(() => {});
+    }
+
+    const tokens = await this.authService.generateTokens(user.id, user.role);
 
     return {
-      message: 'Đã gửi mã OTP tới email của bạn',
-      email,
-      userId: user.id,
+      message: 'Đăng ký thành công',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+        isEmailVerified: user.isEmailVerified,
+      },
+      ...tokens,
     };
   }
 
