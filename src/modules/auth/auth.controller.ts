@@ -1,4 +1,5 @@
-import { Controller, Post, Body, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, BadRequestException, UseGuards, Request } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -264,6 +265,37 @@ export class AuthController {
       where: { email },
       data: { password: hashedPassword },
     });
+
+    return { message: 'Đổi mật khẩu thành công' };
+  }
+
+  /**
+   * POST /auth/change-password - Đổi mật khẩu khi đã đăng nhập
+   */
+  @Post('change-password')
+  @UseGuards(AuthGuard('jwt'))
+  async changePassword(
+    @Request() req,
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    const { currentPassword, newPassword } = body;
+
+    if (!currentPassword || !newPassword) {
+      throw new BadRequestException('Mật khẩu hiện tại và mật khẩu mới là bắt buộc');
+    }
+
+    if (newPassword.length < 6) {
+      throw new BadRequestException('Mật khẩu mới phải ít nhất 6 ký tự');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) throw new BadRequestException('Không tìm thấy tài khoản');
+
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) throw new BadRequestException('Mật khẩu hiện tại không đúng');
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
 
     return { message: 'Đổi mật khẩu thành công' };
   }
