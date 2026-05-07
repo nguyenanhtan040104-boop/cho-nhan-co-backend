@@ -182,4 +182,66 @@ export class AuthController {
     const tokens = await this.authService.refreshToken(refreshToken);
     return tokens;
   }
+
+  /**
+   * POST /auth/forgot-password - Gửi OTP để reset mật khẩu
+   */
+  @Post('forgot-password')
+  async forgotPassword(@Body('email') email: string) {
+    if (!email) {
+      throw new BadRequestException('Email là bắt buộc');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // Trả về thành công dù email không tồn tại (bảo mật)
+      return { message: 'Nếu email tồn tại, mã OTP đã được gửi' };
+    }
+
+    await this.otpService.generateAndSendOtp(email);
+
+    return {
+      message: 'Đã gửi mã OTP tới email của bạn',
+      email,
+    };
+  }
+
+  /**
+   * POST /auth/reset-password - Xác nhận OTP + đổi mật khẩu mới
+   */
+  @Post('reset-password')
+  async resetPassword(
+    @Body()
+    body: {
+      email: string;
+      code: string;
+      newPassword: string;
+      confirmPassword?: string;
+    },
+  ) {
+    const { email, code, newPassword, confirmPassword } = body;
+
+    if (!email || !code || !newPassword) {
+      throw new BadRequestException('Email, mã OTP và mật khẩu mới là bắt buộc');
+    }
+
+    if (confirmPassword && newPassword !== confirmPassword) {
+      throw new BadRequestException('Mật khẩu không khớp');
+    }
+
+    if (newPassword.length < 6) {
+      throw new BadRequestException('Mật khẩu phải ít nhất 6 ký tự');
+    }
+
+    await this.otpService.verifyOtp(email, code);
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { email },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Đổi mật khẩu thành công' };
+  }
 }
