@@ -40,19 +40,27 @@ export class AuthController {
     }
 
     const existing = await this.prisma.user.findUnique({ where: { email } });
-    if (existing) {
+
+    if (existing && existing.isEmailVerified) {
       throw new BadRequestException('Email này đã được đăng ký');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        fullName: fullName || 'User',
-        isEmailVerified: false,
-      },
-    });
+
+    // Nếu đã tồn tại nhưng chưa verify → cập nhật password + gửi lại OTP
+    const user = existing
+      ? await this.prisma.user.update({
+          where: { email },
+          data: { password: hashedPassword, fullName: fullName || existing.fullName },
+        })
+      : await this.prisma.user.create({
+          data: {
+            email,
+            password: hashedPassword,
+            fullName: fullName || 'User',
+            isEmailVerified: false,
+          },
+        });
 
     await this.otpService.generateAndSendOtp(email);
 
