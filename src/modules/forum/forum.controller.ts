@@ -5,6 +5,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ForumService, CreatePostDto, CreateCommentDto } from './forum.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { EmailVerifiedGuard } from '../../common/guards/email-verified.guard';
 
 @Controller('forum')
 export class ForumController {
@@ -20,7 +21,7 @@ export class ForumController {
     return this.service.findOne(id);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), EmailVerifiedGuard)
   @Post('posts')
   create(@CurrentUser('id') userId: string, @Body() dto: CreatePostDto) {
     return this.service.create(userId, dto);

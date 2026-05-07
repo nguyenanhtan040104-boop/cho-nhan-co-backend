@@ -14,6 +14,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
+import { EmailVerifiedGuard } from '../../common/guards/email-verified.guard';
 
 @ApiTags('Products')
 @Controller('products')
@@ -21,7 +22,7 @@ export class ProductsController {
   constructor(private productsService: ProductsService) {}
 
   @Post()
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), EmailVerifiedGuard)
   @ApiBearerAuth()
   @HttpCode(201)
   async create(@Request() req, @Body() dto: any) {

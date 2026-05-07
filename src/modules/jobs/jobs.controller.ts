@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Http
 import { AuthGuard } from '@nestjs/passport';
 import { JobsService, CreateJobDto, UpdateJobDto } from './jobs.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { EmailVerifiedGuard } from '../../common/guards/email-verified.guard';
 
 @Controller('jobs')
 export class JobsController {
@@ -23,7 +24,7 @@ export class JobsController {
     return this.service.findOne(id);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), EmailVerifiedGuard)
   @Post()
   create(@CurrentUser('id') userId: string, @Body() dto: CreateJobDto) {
     return this.service.create(userId, dto);

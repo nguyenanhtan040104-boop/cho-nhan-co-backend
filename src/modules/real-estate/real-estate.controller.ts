@@ -6,6 +6,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RealEstateService, CreateRealEstateDto, UpdateRealEstateDto, RealEstateQueryDto } from './real-estate.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RealEstateStatus } from '../../common/enums';
+import { EmailVerifiedGuard } from '../../common/guards/email-verified.guard';
 
 @Controller('real-estates')
 export class RealEstateController {
@@ -27,7 +28,7 @@ export class RealEstateController {
     return this.service.findOne(id);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), EmailVerifiedGuard)
   @Post()
   create(@CurrentUser('id') userId: string, @Body() dto: CreateRealEstateDto) {
     return this.service.create(userId, dto);
