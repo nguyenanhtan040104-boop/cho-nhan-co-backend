@@ -68,6 +68,20 @@ export class UsersController {
     return { message: 'Xác thực email thành công' };
   }
 
+  /**
+   * GET /users/me/login-history - Lịch sử đăng nhập
+   */
+  @UseGuards(AuthGuard('jwt'))
+  @Get('me/login-history')
+  async getLoginHistory(@CurrentUser('id') userId: string) {
+    const history = await this.prisma.loginHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    return { data: history };
+  }
+
   @Get(':id')
   getPublicProfile(@Param('id') id: string) {
     return this.usersService.getPublicProfile(id);

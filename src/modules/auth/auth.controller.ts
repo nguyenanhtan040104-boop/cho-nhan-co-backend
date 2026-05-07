@@ -153,12 +153,17 @@ export class AuthController {
    * POST /auth/login - Đăng nhập (nhận email, phone hoặc identifier)
    */
   @Post('login')
-  async login(@Body() body: { email?: string; identifier?: string; password: string }) {
+  async login(
+    @Body() body: { email?: string; identifier?: string; password: string },
+    @Request() req,
+  ) {
     const identifier = body.identifier || body.email;
     const { password } = body;
+    const ipAddress = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
 
     if (!identifier || !password) {
-      throw new BadRequestException('Email và password là bắt buộc');
+      throw new BadRequestException('Tên đăng nhập và mật khẩu là bắt buộc');
     }
 
     const user = await this.prisma.user.findFirst({
@@ -172,13 +177,49 @@ export class AuthController {
     });
 
     if (!user) {
-      throw new BadRequestException('Email hoặc password sai');
+      throw new BadRequestException('Tài khoản hoặc mật khẩu không đúng');
+    }
+
+    // Kiểm tra tài khoản bị khóa
+    if (user.lockedUntil && new Date() < user.lockedUntil) {
+      const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+      await this.prisma.loginHistory.create({
+        data: { userId: user.id, ipAddress: String(ipAddress), userAgent, status: 'LOCKED' },
+      });
+      throw new BadRequestException(`Tài khoản bị khóa tạm thời. Thử lại sau ${minutesLeft} phút`);
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
+
     if (!validPassword) {
-      throw new BadRequestException('Email hoặc password sai');
+      const attempts = user.loginAttempts + 1;
+      const lockedUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { loginAttempts: attempts, ...(lockedUntil && { lockedUntil }) },
+      });
+
+      await this.prisma.loginHistory.create({
+        data: { userId: user.id, ipAddress: String(ipAddress), userAgent, status: 'FAILED' },
+      });
+
+      if (attempts >= 5) {
+        throw new BadRequestException('Nhập sai quá 5 lần, tài khoản bị khóa 15 phút');
+      }
+
+      throw new BadRequestException(`Mật khẩu không đúng (${attempts}/5 lần)`);
     }
+
+    // Đăng nhập thành công — reset attempts
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { loginAttempts: 0, lockedUntil: null },
+    });
+
+    await this.prisma.loginHistory.create({
+      data: { userId: user.id, ipAddress: String(ipAddress), userAgent, status: 'SUCCESS' },
+    });
 
     const tokens = await this.authService.generateTokens(user.id, user.role);
 
@@ -187,6 +228,7 @@ export class AuthController {
       user: {
         id: user.id,
         email: user.email,
+        username: user.username,
         fullName: user.fullName,
         isEmailVerified: user.isEmailVerified,
       },

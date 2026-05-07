@@ -24,6 +24,8 @@ model User {
   twoFactorEnabled         Boolean   @default(false)
   role                     String    @default("user")
   status                   String    @default("active")
+  loginAttempts            Int       @default(0)
+  lockedUntil              DateTime?
 
   products                 Product[]
   realEstates              RealEstate[]
