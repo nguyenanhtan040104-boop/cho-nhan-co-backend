@@ -33,8 +33,10 @@ export class JobsService {
     search?: string; type?: JobType; category?: string;
     location?: string; isUrgent?: boolean; page?: number; limit?: number;
   }) {
-    const { search, type, category, location, isUrgent, page = 1, limit = 12 } = query;
-    const skip = (page - 1) * limit;
+    const { search, type, category, location, isUrgent } = query;
+    const pageNum = Number(query.page) || 1;
+    const limitNum = Number(query.limit) || 12;
+    const skip = (pageNum - 1) * limitNum;
 
     const where: any = {
       isDeleted: false,
@@ -55,7 +57,7 @@ export class JobsService {
       this.prisma.job.findMany({
         where,
         orderBy: [{ isUrgent: 'desc' }, { isVip: 'desc' }, { createdAt: 'desc' }],
-        skip, take: limit,
+        skip, take: limitNum,
         include: {
           user: { select: { id: true, username: true, fullName: true, avatarUrl: true } },
         },
@@ -63,7 +65,7 @@ export class JobsService {
       this.prisma.job.count({ where }),
     ]);
 
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data, total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) };
   }
 
   async findOne(id: string) {

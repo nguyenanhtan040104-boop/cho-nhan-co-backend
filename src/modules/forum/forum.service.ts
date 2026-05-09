@@ -25,8 +25,10 @@ export class ForumService {
     search?: string; category?: ForumCategory;
     page?: number; limit?: number; sortBy?: string;
   }) {
-    const { search, category, page = 1, limit = 12, sortBy = 'newest' } = query;
-    const skip = (page - 1) * limit;
+    const pageNum = Number(query.page) || 1;
+    const limitNum = Number(query.limit) || 12;
+    const { search, category, sortBy = 'newest' } = query;
+    const skip = (pageNum - 1) * limitNum;
 
     const where: any = {
       isDeleted: false,
@@ -48,7 +50,7 @@ export class ForumService {
       this.prisma.forumPost.findMany({
         where,
         orderBy: [{ isPinned: 'desc' }, orderBy],
-        skip, take: limit,
+        skip, take: limitNum,
         include: {
           user: { select: { id: true, username: true, avatarUrl: true } },
           _count: { select: { comments: true } },
@@ -62,7 +64,7 @@ export class ForumService {
       user: post.isAnonymous ? null : post.user,
     }));
 
-    return { data: mapped, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data: mapped, total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) };
   }
 
   async findOne(id: string) {

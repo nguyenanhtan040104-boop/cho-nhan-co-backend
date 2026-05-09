@@ -73,8 +73,8 @@ export class ProductsService {
     limit?: number;
     sortBy?: string;
   }) {
-    const page = query.page || 1;
-    const limit = query.limit || 20;
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 20;
     const skip = (page - 1) * limit;
 
     const where: any = {
@@ -187,8 +187,8 @@ export class ProductsService {
 
   // =================== GET USER'S PRODUCTS ===================
   async getUserProducts(userId: string, query?: { page?: number; limit?: number }) {
-    const page = query?.page || 1;
-    const limit = query?.limit || 20;
+    const page = Number(query?.page) || 1;
+    const limit = Number(query?.limit) || 20;
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
