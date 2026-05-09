@@ -11,6 +11,7 @@ import { MessagingModule } from './modules/messaging/messaging.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { MarketPricesModule } from './modules/market-prices/market-prices.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -25,6 +26,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
     NotificationsModule,
     AnalyticsModule,
     UploadsModule,
+    MarketPricesModule,
   ],
 })
 export class AppModule {}

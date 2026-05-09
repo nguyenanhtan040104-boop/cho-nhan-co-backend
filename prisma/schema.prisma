@@ -40,6 +40,7 @@ model User {
   vipSubscription          VipSubscription?
   identity                 UserIdentity?
   conversationParticipants ConversationParticipant[]
+  marketPrices             MarketPrice[]
 
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
@@ -366,4 +367,25 @@ model Review {
   @@unique([productId, authorId])
   @@index([productId])
   @@index([authorId])
+}
+
+model MarketPrice {
+  id          String   @id @default(cuid())
+  productName String
+  category    String
+  unit        String
+  price       Float
+  location    String
+  note        String?
+  source      String?  // Nguồn thông tin: "Thương lái", "Chợ đầu mối", etc.
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([userId])
+  @@index([productName, location])
 }
