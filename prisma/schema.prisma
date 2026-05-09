@@ -219,7 +219,7 @@ model Job {
   experience     String?
   benefits       String?
   deadline       DateTime?
-  status         String    @default("active")
+  status         String    @default("ACTIVE")
   isDeleted      Boolean   @default(false)
   viewCount      Int       @default(0)
   isUrgent       Boolean   @default(false)
