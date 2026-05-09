@@ -38,20 +38,7 @@ export class ProductsController {
     return this.productsService.getAll({ search, category, location, minPrice, maxPrice, page, limit, sortBy });
   }
 
-  @Get(':id')
-  async getById(@Param('id') id: string) {
-    return this.productsService.getById(id);
-  }
-
   // =================== AUTH REQUIRED ===================
-
-  @Post()
-  @UseGuards(AuthGuard('jwt'), EmailVerifiedGuard)
-  @ApiBearerAuth()
-  @HttpCode(201)
-  async create(@CurrentUser('id') userId: string, @Body() dto: any) {
-    return this.productsService.create(userId, dto);
-  }
 
   @Get('me/list')
   @UseGuards(AuthGuard('jwt'))
@@ -62,6 +49,19 @@ export class ProductsController {
     @Query('limit') limit = '20',
   ) {
     return this.productsService.getUserProducts(userId, { page: +page, limit: +limit });
+  }
+
+  @Get(':id')
+  async getById(@Param('id') id: string) {
+    return this.productsService.getById(id);
+  }
+
+  @Post()
+  @UseGuards(AuthGuard('jwt'), EmailVerifiedGuard)
+  @ApiBearerAuth()
+  @HttpCode(201)
+  async create(@CurrentUser('id') userId: string, @Body() dto: any) {
+    return this.productsService.create(userId, dto);
   }
 
   @Put(':id')
