@@ -224,6 +224,7 @@ model Job {
   viewCount      Int       @default(0)
   isUrgent       Boolean   @default(false)
   isVip          Boolean   @default(false)
+  postType       String    @default("HIRING")
 
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -14,6 +14,7 @@ export class CreateJobDto {
   @IsOptional() @IsString() benefits?: string;
   @IsOptional() deadline?: Date;
   @IsOptional() @IsBoolean() isUrgent?: boolean;
+  @IsOptional() @IsString() postType?: string;
 }
 
 export class UpdateJobDto {
@@ -31,7 +32,7 @@ export class JobsService {
 
   async findAll(query: {
     search?: string; type?: JobType; category?: string;
-    location?: string; isUrgent?: boolean; page?: number; limit?: number;
+    location?: string; isUrgent?: boolean; page?: number; limit?: number; postType?: string;
   }) {
     const { search, type, category, location, isUrgent } = query;
     const pageNum = Number(query.page) || 1;
@@ -45,6 +46,7 @@ export class JobsService {
       ...(category && { category }),
       ...(location && { location: { contains: location, mode: 'insensitive' } }),
       ...(isUrgent !== undefined && { isUrgent }),
+      ...(query.postType && { postType: query.postType }),
       ...(search && {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
