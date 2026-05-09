@@ -10,6 +10,7 @@ import { ForumModule } from './modules/forum/forum.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -23,6 +24,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     MessagingModule,
     NotificationsModule,
     AnalyticsModule,
+    UploadsModule,
   ],
 })
 export class AppModule {}
