@@ -41,6 +41,7 @@ model User {
   identity                 UserIdentity?
   conversationParticipants ConversationParticipant[]
   marketPrices             MarketPrice[]
+  advertisements           Advertisement[]
 
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
@@ -388,4 +389,33 @@ model MarketPrice {
   @@index([category])
   @@index([userId])
   @@index([productName, location])
+}
+
+model Advertisement {
+  id           String   @id @default(cuid())
+  title        String
+  category     String   // KHAI_TRUONG, KHUYEN_MAI, SAN_PHAM_MOI, DICH_VU, SU_KIEN, KHAC
+  description  String
+  businessName String?
+  images       String[] // mảng URL ảnh
+  location     String?
+  contactName  String?
+  contactPhone String?
+  startDate    DateTime?
+  endDate      DateTime?
+  isActive     Boolean  @default(true)
+  isVip        Boolean  @default(false)
+  vipExpiresAt DateTime?
+  viewCount    Int      @default(0)
+  isDeleted    Boolean  @default(false)
+
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category])
+  @@index([userId])
+  @@index([isActive, isDeleted])
 }
