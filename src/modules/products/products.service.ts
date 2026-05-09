@@ -330,6 +330,37 @@ export class ProductsService {
     return { message: `Đã xóa ${ids.length} sản phẩm` };
   }
 
+  // =================== UPDATE STATUS ===================
+  async updateStatus(id: string, userId: string, status: string) {
+    const product = await this.prisma.product.findUnique({ where: { id } });
+    if (!product) throw new NotFoundException('Sản phẩm không tồn tại');
+    if (product.userId !== userId) throw new ForbiddenException('Không có quyền');
+
+    const validStatuses = ['ACTIVE', 'PAUSED', 'SOLD_OUT', 'DRAFT'];
+    if (!validStatuses.includes(status)) {
+      throw new BadRequestException(`Trạng thái không hợp lệ. Chọn: ${validStatuses.join(', ')}`);
+    }
+
+    return this.prisma.product.update({
+      where: { id },
+      data: { status: status as any },
+    });
+  }
+
+  // =================== UPDATE QUANTITY (auto-hide when 0) ===================
+  async updateQuantity(id: string, userId: string, quantity: number) {
+    const product = await this.prisma.product.findUnique({ where: { id } });
+    if (!product) throw new NotFoundException('Sản phẩm không tồn tại');
+    if (product.userId !== userId) throw new ForbiddenException('Không có quyền');
+
+    const newStatus = quantity <= 0 ? 'SOLD_OUT' : 'ACTIVE';
+
+    return this.prisma.product.update({
+      where: { id },
+      data: { quantity, status: newStatus as any },
+    });
+  }
+
   // =================== UPGRADE TO VIP ===================
   async upgradeToVip(id: string, userId: string, durationDays: number) {
     const product = await this.prisma.product.findUnique({
