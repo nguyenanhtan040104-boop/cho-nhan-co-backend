@@ -32,4 +32,14 @@ export class AnalyticsController {
   getTopProducts() {
     return this.service.getTopProducts();
   }
+
+  @Get('engagement')
+  getEngagement(@CurrentUser('id') userId: string) {
+    return this.service.getEngagement(userId);
+  }
+
+  @Get('revenue')
+  getRevenue(@CurrentUser('id') userId: string) {
+    return this.service.getRevenue(userId);
+  }
 }

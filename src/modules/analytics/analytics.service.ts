@@ -106,4 +106,63 @@ export class AnalyticsService {
       },
     });
   }
+
+  async getEngagement(userId: string) {
+    const [forumPosts, products, realEstates, jobs] = await Promise.all([
+      this.prisma.forumPost.findMany({
+        where: { userId, isDeleted: false },
+        select: {
+          id: true, title: true, likeCount: true, viewCount: true,
+          createdAt: true,
+          _count: { select: { comments: true } },
+        },
+        orderBy: { likeCount: 'desc' },
+        take: 10,
+      }),
+      this.prisma.product.aggregate({
+        where: { userId, isDeleted: false },
+        _sum: { viewCount: true },
+        _count: { id: true },
+      }),
+      this.prisma.realEstate.aggregate({
+        where: { userId, isDeleted: false },
+        _sum: { viewCount: true },
+        _count: { id: true },
+      }),
+      this.prisma.job.aggregate({
+        where: { userId, isDeleted: false },
+        _sum: { viewCount: true },
+        _count: { id: true },
+      }),
+    ]);
+
+    return {
+      forumPosts,
+      summary: {
+        totalProductViews: products._sum.viewCount || 0,
+        totalRealEstateViews: realEstates._sum.viewCount || 0,
+        totalJobViews: jobs._sum.viewCount || 0,
+        totalForumLikes: forumPosts.reduce((s, p) => s + p.likeCount, 0),
+        totalForumComments: forumPosts.reduce((s, p) => s + p._count.comments, 0),
+      },
+    };
+  }
+
+  async getRevenue(userId: string) {
+    const [vip, vipProducts, vipRealEstates] = await Promise.all([
+      this.prisma.vipSubscription.findUnique({ where: { userId } }),
+      this.prisma.product.findMany({
+        where: { userId, isVip: true },
+        select: { id: true, title: true, vipExpiresAt: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.realEstate.findMany({
+        where: { userId, isVip: true },
+        select: { id: true, title: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    return { vip, vipProducts, vipRealEstates };
+  }
 }
