@@ -6,6 +6,7 @@ export class UpdateProfileDto {
   @IsOptional() @IsString() fullName?: string;
   @IsOptional() @IsString() address?: string;
   @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsString() avatarUrl?: string;
 }
 
 @Injectable()
@@ -33,7 +34,7 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id: userId },
       data: dto,
-      select: { id: true, fullName: true, address: true, phone: true, updatedAt: true },
+      select: { id: true, fullName: true, address: true, phone: true, avatarUrl: true, updatedAt: true },
     });
   }
 
