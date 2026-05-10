@@ -46,14 +46,29 @@ export class MessagingService {
 
     if (existing) return existing.conversation;
 
-    // Tạo mới
-    return this.prisma.conversation.create({
-      data: {
-        participants: {
-          create: [{ userId }, { userId: targetUserId }],
+    // Tạo mới, bắt lỗi duplicate
+    try {
+      return await this.prisma.conversation.create({
+        data: {
+          participants: {
+            create: [{ userId }, { userId: targetUserId }],
+          },
         },
-      },
-    });
+      });
+    } catch (e: any) {
+      // Nếu bị duplicate (race condition), tìm lại
+      if (e?.code === 'P2002') {
+        const retry = await this.prisma.conversationParticipant.findFirst({
+          where: {
+            userId,
+            conversation: { participants: { some: { userId: targetUserId } } },
+          },
+          include: { conversation: true },
+        });
+        if (retry) return retry.conversation;
+      }
+      throw e;
+    }
   }
 
   async getMessages(conversationId: string, userId: string, page = 1, limit = 30) {
