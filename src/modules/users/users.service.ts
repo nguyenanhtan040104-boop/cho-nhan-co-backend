@@ -47,10 +47,11 @@ export class UsersService {
 
   async getPublicProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
-      where: { id: userId, isActive: true },
+      where: { id: userId },
       select: {
         id: true, username: true, fullName: true, avatarUrl: true,
-        isVerified: true, createdAt: true,
+        address: true, phone: true, isVerified: true, isEmailVerified: true,
+        createdAt: true,
         identity: { select: { status: true } },
         _count: { select: { products: true, realEstates: true, jobs: true } },
       },
