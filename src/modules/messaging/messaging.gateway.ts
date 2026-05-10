@@ -11,6 +11,8 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MessagingService } from './messaging.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../../common/enums';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -27,6 +29,7 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     private messagingService: MessagingService,
     private jwtService: JwtService,
     private config: ConfigService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -79,15 +82,28 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
       // Broadcast đến conversation room
       this.server.to(`conversation:${data.conversationId}`).emit('new_message', message);
 
-      // Gửi notification đến receiver nếu đang online
+      // Gửi notification đến receiver
       const conversation = await this.messagingService.getConversationParticipants(data.conversationId);
       for (const participant of conversation) {
         if (participant.userId !== userId) {
+          // Tạo notification trong DB
+          const senderName = message.sender?.username || 'Ai đó';
+          const preview = data.type === 'IMAGE' ? '🖼 Đã gửi ảnh' : (data.content?.slice(0, 50) || '');
+          await this.notificationsService.create({
+            userId: participant.userId,
+            title: `Tin nhắn từ ${senderName}`,
+            body: preview,
+            type: NotificationType.MESSAGE,
+            data: { conversationId: data.conversationId },
+          });
+
+          // Gửi realtime nếu đang online
           const receiverSocketId = this.connectedUsers.get(participant.userId);
           if (receiverSocketId) {
             this.server.to(receiverSocketId).emit('new_notification', {
               type: 'MESSAGE',
-              title: 'Tin nhắn mới',
+              title: `Tin nhắn từ ${senderName}`,
+              body: preview,
               data: { conversationId: data.conversationId },
             });
           }
