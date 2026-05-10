@@ -18,7 +18,7 @@ export class UsersService {
       select: {
         id: true, email: true, phone: true, username: true,
         fullName: true, address: true, avatarUrl: true,
-        role: true, isVerified: true, isActive: true,
+        role: true, isVerified: true, isActive: true, isEmailVerified: true,
         twoFactorEnabled: true, createdAt: true,
         identity: { select: { status: true } },
         vipSubscription: { select: { plan: true, endDate: true, isActive: true } },
