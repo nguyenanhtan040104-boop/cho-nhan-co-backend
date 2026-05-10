@@ -150,4 +150,28 @@ export class MessagingService {
       where: { conversationId },
     });
   }
+
+  async blockUser(userId: string, targetUserId: string) {
+    await this.prisma.userBlock.upsert({
+      where: { blockerId_blockedId: { blockerId: userId, blockedId: targetUserId } },
+      create: { blockerId: userId, blockedId: targetUserId },
+      update: {},
+    });
+    return { message: 'Đã chặn người dùng này' };
+  }
+
+  async unblockUser(userId: string, targetUserId: string) {
+    await this.prisma.userBlock.deleteMany({
+      where: { blockerId: userId, blockedId: targetUserId },
+    });
+    return { message: 'Đã bỏ chặn người dùng này' };
+  }
+
+  async getBlockedUsers(userId: string) {
+    const blocks = await this.prisma.userBlock.findMany({
+      where: { blockerId: userId },
+      include: { blocked: { select: { id: true, fullName: true, username: true, avatarUrl: true } } },
+    });
+    return blocks.map(b => b.blocked);
+  }
 }

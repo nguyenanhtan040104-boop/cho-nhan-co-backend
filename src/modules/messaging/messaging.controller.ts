@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MessagingService } from './messaging.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -38,5 +38,23 @@ export class MessagingController {
   @HttpCode(HttpStatus.OK)
   mute(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.service.muteConversation(id, userId);
+  }
+
+  // Block user
+  @Post('block/:targetUserId')
+  @HttpCode(HttpStatus.OK)
+  blockUser(@Param('targetUserId') targetUserId: string, @CurrentUser('id') userId: string) {
+    return this.service.blockUser(userId, targetUserId);
+  }
+
+  @Delete('block/:targetUserId')
+  @HttpCode(HttpStatus.OK)
+  unblockUser(@Param('targetUserId') targetUserId: string, @CurrentUser('id') userId: string) {
+    return this.service.unblockUser(userId, targetUserId);
+  }
+
+  @Get('blocks/list')
+  getBlockedUsers(@CurrentUser('id') userId: string) {
+    return this.service.getBlockedUsers(userId);
   }
 }
