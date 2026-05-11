@@ -43,8 +43,14 @@ export class ForumController {
   @UseGuards(AuthGuard('jwt'))
   @Post('posts/:id/like')
   @HttpCode(HttpStatus.OK)
-  likePost(@Param('id') id: string) {
-    return this.service.likePost(id);
+  likePost(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.service.likePost(id, userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('posts/:id/liked')
+  isLiked(@Param('id') postId: string, @CurrentUser('id') userId: string) {
+    return this.service.getPostLikedByUser(postId, userId);
   }
 
   @UseGuards(AuthGuard('jwt'))

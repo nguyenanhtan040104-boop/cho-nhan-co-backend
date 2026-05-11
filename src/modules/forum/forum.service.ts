@@ -133,12 +133,38 @@ export class ForumService {
     return { message: 'Đã xóa bài viết' };
   }
 
-  async likePost(id: string) {
-    return this.prisma.forumPost.update({
-      where: { id },
-      data: { likeCount: { increment: 1 } },
-      select: { likeCount: true },
+  async likePost(id: string, userId: string) {
+    // Kiểm tra đã like chưa
+    const existing = await this.prisma.postLike.findUnique({
+      where: { postId_userId: { postId: id, userId } },
     });
+
+    if (existing) {
+      // Unlike: xóa like và giảm count
+      await this.prisma.postLike.delete({ where: { id: existing.id } });
+      const post = await this.prisma.forumPost.update({
+        where: { id },
+        data: { likeCount: { decrement: 1 } },
+        select: { likeCount: true },
+      });
+      return { likeCount: Math.max(0, post.likeCount), liked: false };
+    } else {
+      // Like: tạo record và tăng count
+      await this.prisma.postLike.create({ data: { postId: id, userId } });
+      const post = await this.prisma.forumPost.update({
+        where: { id },
+        data: { likeCount: { increment: 1 } },
+        select: { likeCount: true },
+      });
+      return { likeCount: post.likeCount, liked: true };
+    }
+  }
+
+  async getPostLikedByUser(postId: string, userId: string): Promise<boolean> {
+    const like = await this.prisma.postLike.findUnique({
+      where: { postId_userId: { postId, userId } },
+    });
+    return !!like;
   }
 
   async addComment(postId: string, userId: string, dto: CreateCommentDto) {
