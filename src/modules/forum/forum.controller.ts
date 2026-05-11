@@ -64,6 +64,19 @@ export class ForumController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Post('comments/:id/like')
+  @HttpCode(HttpStatus.OK)
+  likeComment(@Param('id') commentId: string, @CurrentUser('id') userId: string) {
+    return this.service.likeComment(commentId, userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('comments/:id/liked')
+  isCommentLiked(@Param('id') commentId: string, @CurrentUser('id') userId: string) {
+    return this.service.getCommentLikedByUser(commentId, userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Put('comments/:id')
   updateComment(
     @Param('id') commentId: string,

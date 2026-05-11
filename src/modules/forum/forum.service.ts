@@ -79,7 +79,7 @@ export class ForumService {
             user: { select: { id: true, username: true, avatarUrl: true } },
             replies: {
               where: { isDeleted: false, isApproved: true },
-              include: { user: { select: { id: true, username: true, avatarUrl: true } } },
+              include: { user: { select: { id: true, username: true, fullName: true, avatarUrl: true } } },
             },
           },
           take: 20,
@@ -172,9 +172,46 @@ export class ForumService {
     if (!post) throw new NotFoundException('Bài viết không tồn tại');
 
     return this.prisma.comment.create({
-      data: { postId, userId, content: dto.content, parentId: dto.parentId },
-      include: { user: { select: { id: true, username: true, avatarUrl: true } } },
+      data: { postId, userId, content: dto.content, parentId: dto.parentId ?? null },
+      include: {
+        user: { select: { id: true, username: true, fullName: true, avatarUrl: true } },
+        replies: {
+          where: { isDeleted: false },
+          include: { user: { select: { id: true, username: true, fullName: true, avatarUrl: true } } },
+        },
+      },
     });
+  }
+
+  async likeComment(commentId: string, userId: string) {
+    const existing = await this.prisma.commentLike.findUnique({
+      where: { commentId_userId: { commentId, userId } },
+    });
+
+    if (existing) {
+      await this.prisma.commentLike.delete({ where: { id: existing.id } });
+      const c = await this.prisma.comment.update({
+        where: { id: commentId },
+        data: { likeCount: { decrement: 1 } },
+        select: { likeCount: true },
+      });
+      return { likeCount: Math.max(0, c.likeCount), liked: false };
+    } else {
+      await this.prisma.commentLike.create({ data: { commentId, userId } });
+      const c = await this.prisma.comment.update({
+        where: { id: commentId },
+        data: { likeCount: { increment: 1 } },
+        select: { likeCount: true },
+      });
+      return { likeCount: c.likeCount, liked: true };
+    }
+  }
+
+  async getCommentLikedByUser(commentId: string, userId: string): Promise<boolean> {
+    const like = await this.prisma.commentLike.findUnique({
+      where: { commentId_userId: { commentId, userId } },
+    });
+    return !!like;
   }
 
   async updateComment(commentId: string, userId: string, content: string) {
