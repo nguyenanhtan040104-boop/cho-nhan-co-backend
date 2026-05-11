@@ -22,21 +22,23 @@ export class ForumService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(query: {
-    search?: string; category?: ForumCategory;
+    search?: string; category?: ForumCategory; tag?: string;
     page?: number; limit?: number; sortBy?: string;
   }) {
     const pageNum = Number(query.page) || 1;
     const limitNum = Number(query.limit) || 12;
-    const { search, category, sortBy = 'newest' } = query;
+    const { search, category, tag, sortBy = 'newest' } = query;
     const skip = (pageNum - 1) * limitNum;
 
     const where: any = {
       isDeleted: false,
       ...(category && { category }),
+      ...(tag && { tags: { has: tag } }),
       ...(search && {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
           { content: { contains: search, mode: 'insensitive' } },
+          { tags: { has: search } },
         ],
       }),
     };
