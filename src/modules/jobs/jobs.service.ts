@@ -34,10 +34,14 @@ export class JobsService {
     search?: string; type?: JobType; category?: string;
     location?: string; isUrgent?: boolean; page?: number; limit?: number; postType?: string;
   }) {
-    const { search, type, category, location, isUrgent } = query;
+    const { search, type, category, location } = query;
     const pageNum = Number(query.page) || 1;
     const limitNum = Number(query.limit) || 12;
     const skip = (pageNum - 1) * limitNum;
+
+    // Convert isUrgent từ string sang boolean (query params luôn là string)
+    const isUrgent = query.isUrgent === undefined ? undefined
+      : query.isUrgent === true || (query.isUrgent as any) === 'true';
 
     const where: any = {
       isDeleted: false,
