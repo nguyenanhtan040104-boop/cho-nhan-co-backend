@@ -242,19 +242,23 @@ model Job {
 }
 
 model ForumPost {
-  id          String    @id @default(cuid())
-  title       String
-  content     String
-  category    String
-  tags        String[]
-  images      String[]
-  views       Int       @default(0)
-  viewCount   Int       @default(0)
-  likeCount   Int       @default(0)
-  isAnonymous Boolean   @default(false)
-  isPinned    Boolean   @default(false)
-  isDeleted   Boolean   @default(false)
-  status      String    @default("active")
+  id             String    @id @default(cuid())
+  title          String
+  content        String
+  category       String
+  tags           String[]
+  images         String[]
+  views          Int       @default(0)
+  viewCount      Int       @default(0)
+  likeCount      Int       @default(0)
+  isAnonymous    Boolean   @default(false)
+  isPinned       Boolean   @default(false)
+  isDeleted      Boolean   @default(false)
+  status         String    @default("active")
+  publishStatus  String    @default("PUBLISHED")  // DRAFT | PUBLISHED
+  approvalStatus String    @default("APPROVED")   // PENDING | APPROVED | REJECTED
+  scheduledAt    DateTime?
+  rejectedReason String?
 
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -10,6 +10,8 @@ export class CreatePostDto {
   @IsOptional() @IsArray() tags?: string[];
   @IsOptional() @IsBoolean() isAnonymous?: boolean;
   @IsOptional() @IsArray() images?: string[];
+  @IsOptional() @IsString() publishStatus?: 'DRAFT' | 'PUBLISHED';
+  @IsOptional() @IsString() scheduledAt?: string;
 }
 
 export class CreateCommentDto {
@@ -24,6 +26,7 @@ export class ForumService {
   async findAll(query: {
     search?: string; category?: ForumCategory; tag?: string;
     page?: number; limit?: number; sortBy?: string;
+    publishStatus?: string; approvalStatus?: string;
   }) {
     const pageNum = Number(query.page) || 1;
     const limitNum = Number(query.limit) || 12;
@@ -32,6 +35,8 @@ export class ForumService {
 
     const where: any = {
       isDeleted: false,
+      publishStatus: 'PUBLISHED',
+      approvalStatus: 'APPROVED',
       ...(category && { category }),
       ...(tag && { tags: { has: tag } }),
       ...(search && {
@@ -96,12 +101,18 @@ export class ForumService {
   }
 
   async create(userId: string, dto: CreatePostDto) {
-    const { images, ...rest } = dto;
+    const { images, scheduledAt, ...rest } = dto;
+    const publishStatus = rest.publishStatus || 'PUBLISHED';
+    delete rest.publishStatus;
+
     return this.prisma.forumPost.create({
       data: {
         ...rest,
         userId,
         images: images || [],
+        publishStatus,
+        approvalStatus: 'APPROVED',
+        ...(scheduledAt && { scheduledAt: new Date(scheduledAt), publishStatus: 'DRAFT' }),
       },
     });
   }
@@ -112,14 +123,18 @@ export class ForumService {
     if (post.userId !== userId) throw new ForbiddenException();
 
     const hoursSinceCreation = (Date.now() - post.createdAt.getTime()) / (1000 * 60 * 60);
-    if (hoursSinceCreation > 24) {
+    if (hoursSinceCreation > 24 && post.publishStatus !== 'DRAFT') {
       throw new BadRequestException('Chỉ được chỉnh sửa bài viết trong vòng 24 giờ');
     }
 
-    const { images, ...rest } = dto;
+    const { images, scheduledAt, publishStatus, ...rest } = dto;
     return this.prisma.forumPost.update({
       where: { id },
-      data: images !== undefined ? { ...rest, images } : rest,
+      data: {
+        ...(images !== undefined ? { ...rest, images } : rest),
+        ...(publishStatus && { publishStatus }),
+        ...(scheduledAt && { scheduledAt: new Date(scheduledAt) }),
+      },
     });
   }
 
@@ -135,14 +150,105 @@ export class ForumService {
     return { message: 'Đã xóa bài viết' };
   }
 
+  // Draft management
+  async getUserDrafts(userId: string) {
+    const drafts = await this.prisma.forumPost.findMany({
+      where: { userId, publishStatus: 'DRAFT', isDeleted: false },
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true, title: true, category: true, createdAt: true, updatedAt: true, scheduledAt: true },
+    });
+    return drafts;
+  }
+
+  async publishDraft(id: string, userId: string) {
+    const post = await this.prisma.forumPost.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException();
+    if (post.userId !== userId) throw new ForbiddenException();
+    if (post.publishStatus !== 'DRAFT') throw new BadRequestException('Bài viết này không phải bản nháp');
+
+    return this.prisma.forumPost.update({
+      where: { id },
+      data: { publishStatus: 'PUBLISHED', scheduledAt: null },
+    });
+  }
+
+  // Approval workflow
+  async getPendingPosts(query: { page?: number; limit?: number }) {
+    const pageNum = Number(query.page) || 1;
+    const limitNum = Number(query.limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    const where = { isDeleted: false, approvalStatus: 'PENDING' };
+    const [data, total] = await Promise.all([
+      this.prisma.forumPost.findMany({
+        where, skip, take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, username: true, fullName: true, avatarUrl: true } } },
+      }),
+      this.prisma.forumPost.count({ where }),
+    ]);
+    return { data, total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) };
+  }
+
+  async approvePost(id: string) {
+    const post = await this.prisma.forumPost.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException();
+    return this.prisma.forumPost.update({
+      where: { id },
+      data: { approvalStatus: 'APPROVED' },
+    });
+  }
+
+  async rejectPost(id: string, reason?: string) {
+    const post = await this.prisma.forumPost.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException();
+    return this.prisma.forumPost.update({
+      where: { id },
+      data: { approvalStatus: 'REJECTED', rejectedReason: reason || null },
+    });
+  }
+
+  // Bulk operations
+  async bulkDelete(ids: string[], userId: string, isAdmin = false) {
+    if (!isAdmin) {
+      const posts = await this.prisma.forumPost.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, userId: true },
+      });
+      const unauthorized = posts.filter(p => p.userId !== userId);
+      if (unauthorized.length > 0) throw new ForbiddenException('Không có quyền xóa một số bài viết');
+    }
+
+    await this.prisma.forumPost.updateMany({
+      where: { id: { in: ids } },
+      data: { isDeleted: true },
+    });
+    return { message: `Đã xóa ${ids.length} bài viết`, count: ids.length };
+  }
+
+  async bulkApprove(ids: string[]) {
+    await this.prisma.forumPost.updateMany({
+      where: { id: { in: ids } },
+      data: { approvalStatus: 'APPROVED' },
+    });
+    return { message: `Đã duyệt ${ids.length} bài viết`, count: ids.length };
+  }
+
+  async bulkReject(ids: string[], reason?: string) {
+    await this.prisma.forumPost.updateMany({
+      where: { id: { in: ids } },
+      data: { approvalStatus: 'REJECTED', rejectedReason: reason || null },
+    });
+    return { message: `Đã từ chối ${ids.length} bài viết`, count: ids.length };
+  }
+
+  // Like/comment methods (unchanged)
   async likePost(id: string, userId: string) {
-    // Kiểm tra đã like chưa
     const existing = await this.prisma.postLike.findUnique({
       where: { postId_userId: { postId: id, userId } },
     });
 
     if (existing) {
-      // Unlike: xóa like và giảm count
       await this.prisma.postLike.delete({ where: { id: existing.id } });
       const post = await this.prisma.forumPost.update({
         where: { id },
@@ -151,7 +257,6 @@ export class ForumService {
       });
       return { likeCount: Math.max(0, post.likeCount), liked: false };
     } else {
-      // Like: tạo record và tăng count
       await this.prisma.postLike.create({ data: { postId: id, userId } });
       const post = await this.prisma.forumPost.update({
         where: { id },
