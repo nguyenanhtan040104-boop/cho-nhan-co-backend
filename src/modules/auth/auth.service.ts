@@ -89,7 +89,18 @@ export class AuthService {
       throw new UnauthorizedException('Tài khoản chưa được xác thực. Vui lòng xác thực OTP.');
     }
 
-    return this.generateTokens(user.id, user.role);
+    const tokens = await this.generateTokens(user.id, user.role);
+    return {
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        fullName: user.fullName,
+        role: user.role,
+        avatarUrl: user.avatarUrl,
+      },
+    };
   }
 
   // =================== XÁC THỰC OTP ===================
