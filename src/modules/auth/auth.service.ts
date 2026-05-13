@@ -68,6 +68,7 @@ export class AuthService {
         OR: [
           { email: dto.identifier },
           { phone: dto.identifier },
+          { username: dto.identifier },
         ],
       },
     });
