@@ -76,6 +76,27 @@ export class ForumController {
     return this.service.rejectPost(id, reason);
   }
 
+  @UseGuards(AuthGuard('jwt'))
+  @Post('admin/posts/:id/hide')
+  @HttpCode(HttpStatus.OK)
+  hidePost(@Param('id') id: string) {
+    return this.service.hidePost(id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('admin/posts/:id/unhide')
+  @HttpCode(HttpStatus.OK)
+  unhidePost(@Param('id') id: string) {
+    return this.service.unhidePost(id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Delete('admin/posts/:id')
+  @HttpCode(HttpStatus.OK)
+  adminDeletePost(@Param('id') id: string) {
+    return this.service.adminDeletePost(id);
+  }
+
   // ─── Bulk operations ─────────────────────────────────────
   @UseGuards(AuthGuard('jwt'))
   @Post('posts/bulk-delete')

@@ -36,7 +36,7 @@ export class ForumService {
     const where: any = {
       isDeleted: false,
       publishStatus: 'PUBLISHED',
-      approvalStatus: 'APPROVED',
+      status: { not: 'hidden' },
       ...(category && { category }),
       ...(tag && { tags: { has: tag } }),
       ...(search && {
@@ -172,22 +172,53 @@ export class ForumService {
     });
   }
 
-  // Approval workflow
-  async getPendingPosts(query: { page?: number; limit?: number }) {
+  // Approval workflow — admin xem tất cả bài (không filter PENDING nữa)
+  async getPendingPosts(query: { page?: number; limit?: number; status?: string; search?: string }) {
     const pageNum = Number(query.page) || 1;
     const limitNum = Number(query.limit) || 20;
     const skip = (pageNum - 1) * limitNum;
 
-    const where = { isDeleted: false, approvalStatus: 'PENDING' };
+    const where: any = {
+      isDeleted: false,
+      ...(query.status === 'hidden' && { status: 'hidden' }),
+      ...(query.status === 'active' && { status: 'active' }),
+      ...(query.search && {
+        OR: [
+          { title: { contains: query.search, mode: 'insensitive' } },
+          { content: { contains: query.search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
     const [data, total] = await Promise.all([
       this.prisma.forumPost.findMany({
         where, skip, take: limitNum,
         orderBy: { createdAt: 'desc' },
-        include: { user: { select: { id: true, username: true, fullName: true, avatarUrl: true } } },
+        include: {
+          user: { select: { id: true, username: true, fullName: true, avatarUrl: true } },
+          _count: { select: { comments: true } },
+        },
       }),
       this.prisma.forumPost.count({ where }),
     ]);
     return { data, total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) };
+  }
+
+  async hidePost(id: string) {
+    const post = await this.prisma.forumPost.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException();
+    return this.prisma.forumPost.update({ where: { id }, data: { status: 'hidden' } });
+  }
+
+  async unhidePost(id: string) {
+    const post = await this.prisma.forumPost.findUnique({ where: { id } });
+    if (!post) throw new NotFoundException();
+    return this.prisma.forumPost.update({ where: { id }, data: { status: 'active' } });
+  }
+
+  async adminDeletePost(id: string) {
+    await this.prisma.forumPost.update({ where: { id }, data: { isDeleted: true } });
+    return { message: 'Đã xóa bài viết' };
   }
 
   async approvePost(id: string) {
