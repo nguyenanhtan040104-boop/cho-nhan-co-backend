@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, RawBodyRequest, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { WalletService } from './wallet.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -13,13 +13,30 @@ export class WalletController {
     return this.walletService.getWallet(userId);
   }
 
+  // Tạo QR thanh toán qua PayOS
   @UseGuards(AuthGuard('jwt'))
-  @Post('top-up')
-  requestTopUp(
+  @Post('create-payment')
+  createPayment(
     @CurrentUser('id') userId: string,
-    @Body() body: { amount: number; note?: string },
+    @Body() body: { amount: number },
   ) {
-    return this.walletService.requestTopUp(userId, body.amount, body.note);
+    return this.walletService.createPaymentLink(userId, body.amount);
+  }
+
+  // Kiểm tra trạng thái thanh toán (frontend polling)
+  @UseGuards(AuthGuard('jwt'))
+  @Get('payment-status/:orderCode')
+  checkPaymentStatus(
+    @Param('orderCode') orderCode: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.walletService.checkPaymentStatus(orderCode, userId);
+  }
+
+  // Webhook từ PayOS (không cần auth)
+  @Post('webhook/payos')
+  payosWebhook(@Body() body: any) {
+    return this.walletService.handlePayosWebhook(body);
   }
 
   @UseGuards(AuthGuard('jwt'))

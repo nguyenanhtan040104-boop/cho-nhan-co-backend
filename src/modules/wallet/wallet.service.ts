@@ -1,5 +1,13 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import PayOS from '@payos/node';
+import * as crypto from 'crypto';
+
+const payos = new PayOS(
+  process.env.PAYOS_CLIENT_ID!,
+  process.env.PAYOS_API_KEY!,
+  process.env.PAYOS_CHECKSUM_KEY!,
+);
 
 @Injectable()
 export class WalletService {
@@ -19,28 +27,111 @@ export class WalletService {
     return { balance: user?.balance || 0, transactions };
   }
 
-  // User requests top-up → auto-approved, balance added immediately
-  async requestTopUp(userId: string, amount: number, note?: string) {
+  // Tạo link thanh toán PayOS (QR code)
+  async createPaymentLink(userId: string, amount: number) {
     if (amount < 10000) throw new BadRequestException('Số tiền nạp tối thiểu là 10,000đ');
-    const [tx] = await this.prisma.$transaction([
-      this.prisma.transaction.create({
-        data: {
-          userId,
-          type: 'top_up',
-          amount,
-          description: note || `Nạp tiền ${amount.toLocaleString('vi-VN')}đ`,
-          status: 'completed',
-        },
-      }),
-      this.prisma.user.update({
-        where: { id: userId },
-        data: { balance: { increment: amount } },
-      }),
-    ]);
-    return { ...tx, message: 'Nạp tiền thành công! Số dư đã được cộng.' };
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { fullName: true, email: true } });
+
+    // Tạo orderCode duy nhất (số nguyên, tối đa 9007199254740991)
+    const orderCode = Number(`${Date.now()}`.slice(-8) + Math.floor(Math.random() * 100));
+
+    // Lưu transaction pending vào DB
+    const tx = await this.prisma.transaction.create({
+      data: {
+        userId,
+        type: 'top_up',
+        amount,
+        description: `Nạp tiền ${amount.toLocaleString('vi-VN')}đ`,
+        status: 'pending',
+        refId: String(orderCode), // lưu orderCode để map webhook
+      },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const backendUrl = process.env.APP_URL || 'http://localhost:3001';
+
+    // Gọi PayOS tạo payment link
+    const paymentLinkData = await payos.createPaymentLink({
+      orderCode,
+      amount,
+      description: `Nap tien tai khoan`,
+      buyerName: user?.fullName || 'Khách hàng',
+      buyerEmail: user?.email || '',
+      items: [{ name: 'Nạp tiền ví', quantity: 1, price: amount }],
+      returnUrl: `${frontendUrl}/wallet?payment=success`,
+      cancelUrl: `${frontendUrl}/wallet?payment=cancel`,
+      webhookUrl: `${backendUrl}/wallet/webhook/payos`,
+    });
+
+    return {
+      transactionId: tx.id,
+      orderCode,
+      checkoutUrl: paymentLinkData.checkoutUrl,
+      qrCode: paymentLinkData.qrCode,
+      amount,
+    };
   }
 
-  // Admin confirms top-up → add balance
+  // Webhook từ PayOS khi thanh toán thành công
+  async handlePayosWebhook(webhookData: any) {
+    // Verify chữ ký từ PayOS
+    try {
+      const webhookType = payos.verifyPaymentWebhookData(webhookData);
+
+      if (webhookData.data?.code === '00' || webhookType.data?.code === '00') {
+        // Thanh toán thành công
+        const orderCode = webhookData.data?.orderCode || webhookType.data?.orderCode;
+        if (!orderCode) return { received: true };
+
+        // Tìm transaction theo orderCode (lưu trong refId)
+        const tx = await this.prisma.transaction.findFirst({
+          where: { refId: String(orderCode), status: 'pending', type: 'top_up' },
+        });
+
+        if (!tx) return { received: true }; // Đã xử lý hoặc không tìm thấy
+
+        // Cộng số dư và cập nhật transaction
+        await this.prisma.$transaction([
+          this.prisma.transaction.update({
+            where: { id: tx.id },
+            data: { status: 'completed' },
+          }),
+          this.prisma.user.update({
+            where: { id: tx.userId },
+            data: { balance: { increment: tx.amount } },
+          }),
+        ]);
+      }
+    } catch (e) {
+      // Webhook không hợp lệ, bỏ qua
+      console.error('PayOS webhook error:', e);
+    }
+
+    return { received: true };
+  }
+
+  // Kiểm tra trạng thái thanh toán (frontend polling)
+  async checkPaymentStatus(orderCode: string, userId: string) {
+    const tx = await this.prisma.transaction.findFirst({
+      where: { refId: orderCode, userId, type: 'top_up' },
+    });
+    if (!tx) throw new NotFoundException('Giao dịch không tồn tại');
+    return { status: tx.status, amount: tx.amount };
+  }
+
+  // Admin rejects top-up
+  async rejectTopUp(transactionId: string, adminNote?: string) {
+    const tx = await this.prisma.transaction.findUnique({ where: { id: transactionId } });
+    if (!tx) throw new NotFoundException('Giao dịch không tồn tại');
+    if (tx.status !== 'pending') throw new BadRequestException('Giao dịch đã được xử lý');
+    return this.prisma.transaction.update({
+      where: { id: transactionId },
+      data: { status: 'rejected', adminNote },
+    });
+  }
+
+  // Admin confirm manual top-up
   async confirmTopUp(transactionId: string, adminNote?: string) {
     const tx = await this.prisma.transaction.findUnique({ where: { id: transactionId } });
     if (!tx) throw new NotFoundException('Giao dịch không tồn tại');
@@ -58,17 +149,6 @@ export class WalletService {
       }),
     ]);
     return { message: 'Xác nhận nạp tiền thành công' };
-  }
-
-  // Admin rejects top-up
-  async rejectTopUp(transactionId: string, adminNote?: string) {
-    const tx = await this.prisma.transaction.findUnique({ where: { id: transactionId } });
-    if (!tx) throw new NotFoundException('Giao dịch không tồn tại');
-    if (tx.status !== 'pending') throw new BadRequestException('Giao dịch đã được xử lý');
-    return this.prisma.transaction.update({
-      where: { id: transactionId },
-      data: { status: 'rejected', adminNote },
-    });
   }
 
   // Admin list all pending top-up requests
@@ -128,9 +208,7 @@ export class WalletService {
     const typeLabel: Record<string, string> = { product: 'Sản phẩm', job: 'Tuyển dụng', real_estate: 'BĐS' };
 
     await this.prisma.$transaction(async (tx) => {
-      // Deduct balance
       await tx.user.update({ where: { id: userId }, data: { balance: { decrement: price } } });
-      // Record transaction
       await tx.transaction.create({
         data: {
           userId,
@@ -142,7 +220,6 @@ export class WalletService {
           refId,
         },
       });
-      // Set VIP
       if (refType === 'product') {
         await tx.product.update({ where: { id: refId }, data: { isVip: true, vipExpiresAt } });
       } else if (refType === 'job') {
