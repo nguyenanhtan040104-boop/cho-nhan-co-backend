@@ -13,6 +13,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { MarketPricesModule } from './modules/market-prices/market-prices.module';
 import { AdvertisementsModule } from './modules/advertisements/advertisements.module';
+import { WalletModule } from './modules/wallet/wallet.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -29,6 +30,7 @@ import { AdvertisementsModule } from './modules/advertisements/advertisements.mo
     UploadsModule,
     MarketPricesModule,
     AdvertisementsModule,
+    WalletModule,
   ],
 })
 export class AppModule {}

@@ -24,6 +24,7 @@ model User {
   twoFactorEnabled         Boolean   @default(false)
   role                     String    @default("user")
   status                   String    @default("active")
+  balance                  Decimal   @default(0)
   loginAttempts            Int       @default(0)
   lockedUntil              DateTime?
 
@@ -46,6 +47,7 @@ model User {
   advertisements           Advertisement[]
   blockedUsers             UserBlock[]  @relation("blocker")
   blockedBy                UserBlock[]  @relation("blocked")
+  transactions             Transaction[]
 
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
@@ -469,4 +471,23 @@ model UserBlock {
 
   @@unique([blockerId, blockedId])
   @@index([blockerId])
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  type        String   // "top_up" | "buy_vip" | "buy_ad"
+  amount      Decimal
+  description String
+  status      String   @default("pending") // "pending" | "completed" | "rejected"
+  refType     String?  // "product" | "job" | "real_estate"
+  refId       String?
+  adminNote   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
 }
