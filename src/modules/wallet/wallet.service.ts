@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const PayOS = require('@payos/node');
+const PayOS = require('@payos/node').default ?? require('@payos/node');
 
 const payos = new PayOS(
   process.env.PAYOS_CLIENT_ID!,
