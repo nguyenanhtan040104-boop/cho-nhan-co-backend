@@ -231,6 +231,7 @@ model Job {
   isUrgent       Boolean   @default(false)
   isVip          Boolean   @default(false)
   postType       String    @default("HIRING")
+  images         String[]  @default([])
 
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)

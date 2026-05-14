@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JobType, PostStatus } from '../../common/enums';
-import { IsString, IsOptional, IsEnum, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, IsArray } from 'class-validator';
 
 export class CreateJobDto {
   @IsString() title: string;
@@ -15,6 +15,7 @@ export class CreateJobDto {
   @IsOptional() deadline?: Date;
   @IsOptional() @IsBoolean() isUrgent?: boolean;
   @IsOptional() @IsString() postType?: string;
+  @IsOptional() @IsArray() images?: string[];
 }
 
 export class UpdateJobDto {
