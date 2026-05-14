@@ -36,6 +36,7 @@ export class RealEstateQueryDto {
   @IsOptional() @Type(() => Number) @IsNumber() maxArea?: number;
   @IsOptional() @Type(() => Number) page?: number = 1;
   @IsOptional() @Type(() => Number) limit?: number = 12;
+  @IsOptional() @IsString() sortBy?: string;
 }
 
 @Injectable()
@@ -43,8 +44,10 @@ export class RealEstateService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(query: RealEstateQueryDto) {
-    const { search, type, address, minPrice, maxPrice, minArea, maxArea, page = 1, limit = 12 } = query;
+    const { search, type, address, minPrice, maxPrice, minArea, maxArea, page = 1, limit = 12, sortBy } = query;
     const skip = (page - 1) * limit;
+
+    const priceOrder = sortBy === 'price_asc' ? 'asc' : sortBy === 'price_desc' ? 'desc' : null;
 
     const where: any = {
       isDeleted: false,
@@ -63,7 +66,9 @@ export class RealEstateService {
     const [data, total] = await Promise.all([
       this.prisma.realEstate.findMany({
         where,
-        orderBy: [{ isVip: 'desc' }, { createdAt: 'desc' }],
+        orderBy: priceOrder
+          ? [{ isVip: 'desc' }, { price: priceOrder }]
+          : [{ isVip: 'desc' }, { createdAt: 'desc' }],
         skip,
         take: limit,
         include: {
