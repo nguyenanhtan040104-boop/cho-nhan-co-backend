@@ -147,6 +147,10 @@ export class RealEstateService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
+  async adminToggleVip(id: string, isVip: boolean) {
+    return this.prisma.realEstate.update({ where: { id }, data: { isVip } });
+  }
+
   private async checkOwnership(id: string, userId: string) {
     const item = await this.prisma.realEstate.findUnique({ where: { id } });
     if (!item) throw new NotFoundException('Không tồn tại');

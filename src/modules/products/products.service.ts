@@ -137,7 +137,7 @@ export class ProductsService {
             },
           },
         },
-        orderBy,
+        orderBy: [{ isVip: 'desc' }, orderBy],
         skip,
         take: limit,
       }),

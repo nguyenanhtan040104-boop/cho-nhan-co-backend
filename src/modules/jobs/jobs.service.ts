@@ -119,6 +119,10 @@ export class JobsService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
+  async adminToggleVip(id: string, isVip: boolean) {
+    return this.prisma.job.update({ where: { id }, data: { isVip } });
+  }
+
   private async checkOwnership(id: string, userId: string) {
     const job = await this.prisma.job.findUnique({ where: { id }, select: { userId: true } });
     if (!job) throw new NotFoundException();

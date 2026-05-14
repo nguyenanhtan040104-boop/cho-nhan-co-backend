@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { JobsService, CreateJobDto, UpdateJobDto } from './jobs.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { EmailVerifiedGuard } from '../../common/guards/email-verified.guard';
+import { AdminGuard } from '../../common/guards/admin.guard';
 
 @Controller('jobs')
 export class JobsController {
@@ -47,5 +48,11 @@ export class JobsController {
   @HttpCode(HttpStatus.OK)
   remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.service.remove(id, userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Patch(':id/vip')
+  adminToggleVip(@Param('id') id: string, @Body() body: { isVip: boolean }) {
+    return this.service.adminToggleVip(id, body.isVip);
   }
 }

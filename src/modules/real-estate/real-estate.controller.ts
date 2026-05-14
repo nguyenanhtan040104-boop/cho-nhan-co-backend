@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param,
+  Controller, Get, Post, Put, Patch, Delete, Body, Param,
   Query, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -7,6 +7,7 @@ import { RealEstateService, CreateRealEstateDto, UpdateRealEstateDto, RealEstate
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RealEstateStatus } from '../../common/enums';
 import { EmailVerifiedGuard } from '../../common/guards/email-verified.guard';
+import { AdminGuard } from '../../common/guards/admin.guard';
 
 @Controller('real-estates')
 export class RealEstateController {
@@ -65,5 +66,11 @@ export class RealEstateController {
     @Body() body: { images: { url: string; caption?: string }[] },
   ) {
     return this.service.addImages(id, userId, body.images);
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Patch(':id/vip')
+  adminToggleVip(@Param('id') id: string, @Body() body: { isVip: boolean }) {
+    return this.service.adminToggleVip(id, body.isVip);
   }
 }
