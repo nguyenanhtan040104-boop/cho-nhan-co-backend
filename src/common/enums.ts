@@ -56,6 +56,7 @@ export enum ForumCategory {
   KINH_NGHIEM = 'KINH_NGHIEM',
   HOI_DAP = 'HOI_DAP',
   KINH_DOANH = 'KINH_DOANH',
+  CANH_BAO = 'CANH_BAO',
 }
 
 export enum MessageType {
