@@ -19,18 +19,25 @@ export class WalletService {
     return { balance: user?.balance || 0, transactions };
   }
 
-  // User requests top-up (creates pending transaction)
+  // User requests top-up → auto-approved, balance added immediately
   async requestTopUp(userId: string, amount: number, note?: string) {
     if (amount < 10000) throw new BadRequestException('Số tiền nạp tối thiểu là 10,000đ');
-    return this.prisma.transaction.create({
-      data: {
-        userId,
-        type: 'top_up',
-        amount,
-        description: note || `Nạp tiền ${amount.toLocaleString('vi-VN')}đ`,
-        status: 'pending',
-      },
-    });
+    const [tx] = await this.prisma.$transaction([
+      this.prisma.transaction.create({
+        data: {
+          userId,
+          type: 'top_up',
+          amount,
+          description: note || `Nạp tiền ${amount.toLocaleString('vi-VN')}đ`,
+          status: 'completed',
+        },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { balance: { increment: amount } },
+      }),
+    ]);
+    return { ...tx, message: 'Nạp tiền thành công! Số dư đã được cộng.' };
   }
 
   // Admin confirms top-up → add balance
