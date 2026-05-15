@@ -33,6 +33,26 @@ export class WalletController {
     return this.walletService.checkPaymentStatus(orderCode, userId);
   }
 
+  // Tạo thanh toán VIP qua PayOS
+  @UseGuards(AuthGuard('jwt'))
+  @Post('create-vip-payment')
+  createVipPayment(
+    @CurrentUser('id') userId: string,
+    @Body() body: { refType: 'product' | 'job' | 'real_estate'; refId: string; durationDays: number },
+  ) {
+    return this.walletService.createVipPaymentLink(userId, body.refType, body.refId, body.durationDays);
+  }
+
+  // Kiểm tra trạng thái thanh toán VIP
+  @UseGuards(AuthGuard('jwt'))
+  @Get('vip-payment-status/:orderCode')
+  checkVipPaymentStatus(
+    @Param('orderCode') orderCode: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.walletService.checkVipPaymentStatus(orderCode, userId);
+  }
+
   // Webhook từ PayOS (không cần auth)
   @Post('webhook/payos')
   payosWebhook(@Body() body: any) {

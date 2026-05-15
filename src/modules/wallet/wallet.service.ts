@@ -111,27 +111,129 @@ export class WalletService {
       }
 
       if (webhookData.code === '00' && data.orderCode) {
-        const tx = await this.prisma.transaction.findFirst({
+        // Handle top_up
+        const topUpTx = await this.prisma.transaction.findFirst({
           where: { refId: String(data.orderCode), status: 'pending', type: 'top_up' },
         });
-
-        if (tx) {
+        if (topUpTx) {
           await this.prisma.$transaction([
-            this.prisma.transaction.update({
-              where: { id: tx.id },
-              data: { status: 'completed' },
-            }),
-            this.prisma.user.update({
-              where: { id: tx.userId },
-              data: { balance: { increment: tx.amount } },
-            }),
+            this.prisma.transaction.update({ where: { id: topUpTx.id }, data: { status: 'completed' } }),
+            this.prisma.user.update({ where: { id: topUpTx.userId }, data: { balance: { increment: topUpTx.amount } } }),
           ]);
+        }
+
+        // Handle vip_payment
+        const vipTx = await this.prisma.transaction.findFirst({
+          where: { refId: String(data.orderCode), status: 'pending', type: 'vip_payment' },
+        });
+        if (vipTx) {
+          // Parse description: "VIP {refType} {days}d: {refId}"
+          const match = vipTx.description?.match(/VIP (\w+) (\d+)d: (.+)/);
+          if (match) {
+            const [, refType, daysStr, itemId] = match;
+            const durationDays = Number(daysStr);
+            const vipExpiresAt = new Date(Date.now() + durationDays * 86400000);
+            await this.prisma.$transaction(async (tx) => {
+              await tx.transaction.update({ where: { id: vipTx.id }, data: { status: 'completed' } });
+              if (refType === 'product') {
+                await tx.product.update({ where: { id: itemId }, data: { isVip: true, vipExpiresAt } });
+              } else if (refType === 'job') {
+                await tx.job.update({ where: { id: itemId }, data: { isVip: true } });
+              } else if (refType === 'real_estate') {
+                await tx.realEstate.update({ where: { id: itemId }, data: { isVip: true } });
+              }
+            });
+          }
         }
       }
     } catch (e) {
       console.error('PayOS webhook error:', e);
     }
     return { received: true };
+  }
+
+  async createVipPaymentLink(userId: string, refType: 'product' | 'job' | 'real_estate', refId: string, durationDays: number) {
+    const VIP_PRICES: Record<number, number> = { 7: 50000, 30: 150000, 90: 350000 };
+    const BASE_PRICES: Record<string, number> = { product: 50000, job: 50000, real_estate: 100000 };
+    const amount = VIP_PRICES[durationDays] || BASE_PRICES[refType] || 50000;
+
+    // Verify ownership
+    let item: any;
+    if (refType === 'product') {
+      item = await this.prisma.product.findUnique({ where: { id: refId } });
+    } else if (refType === 'job') {
+      item = await this.prisma.job.findUnique({ where: { id: refId } });
+    } else {
+      item = await this.prisma.realEstate.findUnique({ where: { id: refId } });
+    }
+    if (!item || item.userId !== userId) throw new ForbiddenException('Không có quyền nâng VIP tin này');
+
+    const orderCode = parseInt(`${Date.now()}`.slice(-9) + `${Math.floor(Math.random() * 9) + 1}`);
+
+    const tx = await this.prisma.transaction.create({
+      data: {
+        userId,
+        type: 'vip_payment',
+        amount,
+        description: `VIP ${refType} ${durationDays}d: ${refId}`,
+        status: 'pending',
+        refId: String(orderCode),
+        refType,
+      },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const description = 'Mua VIP tin dang';
+
+    const paymentData = {
+      orderCode,
+      amount,
+      description,
+      returnUrl: `${frontendUrl}/products/vip?payment=success&id=${refId}`,
+      cancelUrl: `${frontendUrl}/products/vip?id=${refId}`,
+    };
+
+    const signature = createSignatureOfPaymentRequest(paymentData);
+
+    const body = {
+      ...paymentData,
+      items: [{ name: `VIP ${durationDays} ngày`, quantity: 1, price: amount }],
+      signature,
+    };
+
+    const res = await axios.post(`${PAYOS_API}/v2/payment-requests`, body, {
+      headers: {
+        'x-client-id': process.env.PAYOS_CLIENT_ID!,
+        'x-api-key': process.env.PAYOS_API_KEY!,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (res.data.code !== '00') {
+      throw new BadRequestException(res.data.desc || 'Lỗi tạo thanh toán');
+    }
+
+    // Store extra info for webhook activation
+    await this.prisma.transaction.update({
+      where: { id: tx.id },
+      data: { description: `VIP ${refType} ${durationDays}d: ${refId}` },
+    });
+
+    return {
+      transactionId: tx.id,
+      orderCode,
+      checkoutUrl: res.data.data.checkoutUrl,
+      qrCode: res.data.data.qrCode,
+      amount,
+    };
+  }
+
+  async checkVipPaymentStatus(orderCode: string, userId: string) {
+    const tx = await this.prisma.transaction.findFirst({
+      where: { refId: orderCode, userId, type: 'vip_payment' },
+    });
+    if (!tx) throw new NotFoundException('Giao dịch không tồn tại');
+    return { status: tx.status, amount: tx.amount };
   }
 
   async checkPaymentStatus(orderCode: string, userId: string) {
