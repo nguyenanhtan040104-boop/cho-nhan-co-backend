@@ -37,6 +37,7 @@ export class ForumService {
       isDeleted: false,
       publishStatus: 'PUBLISHED',
       status: { not: 'hidden' },
+      approvalStatus: 'APPROVED',
       ...(category && { category }),
       ...(tag && { tags: { has: tag } }),
       ...(search && {
@@ -111,7 +112,7 @@ export class ForumService {
         userId,
         images: images || [],
         publishStatus,
-        approvalStatus: 'APPROVED',
+        approvalStatus: 'PENDING',
         ...(scheduledAt && { scheduledAt: new Date(scheduledAt), publishStatus: 'DRAFT' }),
       },
     });
@@ -180,8 +181,11 @@ export class ForumService {
 
     const where: any = {
       isDeleted: false,
+      // Mặc định chỉ lấy bài chờ duyệt (PENDING), trừ khi lọc theo status khác
+      ...((!query.status || query.status === 'pending') && { approvalStatus: 'PENDING' }),
       ...(query.status === 'hidden' && { status: 'hidden' }),
-      ...(query.status === 'active' && { status: 'active' }),
+      ...(query.status === 'active' && { status: 'active', approvalStatus: 'APPROVED' }),
+      ...(query.status === 'rejected' && { approvalStatus: 'REJECTED' }),
       ...(query.search && {
         OR: [
           { title: { contains: query.search, mode: 'insensitive' } },

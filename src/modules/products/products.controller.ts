@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -16,11 +17,13 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { EmailVerifiedGuard } from '../../common/guards/email-verified.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AdminGuard } from '../../common/guards/admin.guard';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @ApiTags('Products')
 @Controller('products')
 export class ProductsController {
-  constructor(private productsService: ProductsService) {}
+  constructor(private productsService: ProductsService, private prisma: PrismaService) {}
 
   // =================== PUBLIC ===================
 
@@ -130,5 +133,14 @@ export class ProductsController {
     @Body('durationDays') durationDays: number,
   ) {
     return this.productsService.upgradeToVip(id, userId, durationDays || 30);
+  }
+
+  @Patch(':id/vip')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async adminToggleVip(@Param('id') id: string, @Body() body: { isVip: boolean }) {
+    return this.prisma.product.update({
+      where: { id },
+      data: { isVip: body.isVip, vipExpiresAt: body.isVip ? undefined : null },
+    });
   }
 }
