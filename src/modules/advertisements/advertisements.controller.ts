@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AdvertisementsService } from './advertisements.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AdminGuard } from '../../common/guards/admin.guard';
 
 @ApiTags('Advertisements')
 @Controller('advertisements')
@@ -55,5 +56,12 @@ export class AdvertisementsController {
   @ApiBearerAuth()
   delete(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.service.delete(id, userId);
+  }
+
+  @Patch(':id/vip')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @ApiBearerAuth()
+  adminToggleVip(@Param('id') id: string, @Body() body: { isVip: boolean }) {
+    return this.service.adminToggleVip(id, body.isVip);
   }
 }

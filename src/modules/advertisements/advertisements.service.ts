@@ -119,6 +119,13 @@ export class AdvertisementsService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
+  async adminToggleVip(id: string, isVip: boolean) {
+    return this.prisma.advertisement.update({
+      where: { id },
+      data: { isVip },
+    });
+  }
+
   private async checkOwnership(id: string, userId: string) {
     const ad = await this.prisma.advertisement.findUnique({ where: { id } });
     if (!ad) throw new NotFoundException('Không tìm thấy quảng cáo');
