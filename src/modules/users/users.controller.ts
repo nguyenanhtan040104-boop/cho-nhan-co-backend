@@ -1,9 +1,10 @@
-import { Controller, Get, Put, Post, Body, Param, Query, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Put, Post, Body, Param, Query, UseGuards, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService, UpdateProfileDto } from './users.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { OtpService } from '../auth/otp.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AdminGuard } from '../../common/guards/admin.guard';
 
 @Controller('users')
 export class UsersController {
@@ -81,6 +82,72 @@ export class UsersController {
     });
     return { data: history };
   }
+
+  // ─── ADMIN ENDPOINTS ─────────────────────────────────────────────────
+
+  /** GET /users/admin/all - Lấy tất cả users (admin only) */
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Get('admin/all')
+  async adminGetAllUsers(
+    @Query('page') page = '1',
+    @Query('limit') limit = '100',
+    @Query('search') search?: string,
+    @Query('role') role?: string,
+  ) {
+    const skip = (+page - 1) * +limit;
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { fullName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+      ];
+    }
+    if (role) where.role = role;
+
+    const [data, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true, fullName: true, email: true, phone: true,
+          role: true, isActive: true, createdAt: true, avatarUrl: true,
+          _count: { select: { products: true, realEstates: true, jobs: true, forumPosts: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip, take: +limit,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+    return { data, total, page: +page, totalPages: Math.ceil(total / +limit) };
+  }
+
+  /** POST /users/:id/ban - Khóa / mở khóa tài khoản (admin only) */
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Post(':id/ban')
+  async adminBanUser(@Param('id') id: string, @Body() body: { banned: boolean }) {
+    await this.prisma.user.update({
+      where: { id },
+      data: { isActive: !body.banned },
+    });
+    return { success: true, banned: body.banned };
+  }
+
+  /** PUT /users/:id/role - Đổi role (admin only) */
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Put(':id/role')
+  async adminSetRole(@Param('id') id: string, @Body() body: { role: string }) {
+    const validRoles = ['user', 'admin', 'vip'];
+    if (!validRoles.includes(body.role?.toLowerCase())) {
+      throw new BadRequestException('Role không hợp lệ');
+    }
+    await this.prisma.user.update({
+      where: { id },
+      data: { role: body.role.toLowerCase() },
+    });
+    return { success: true, role: body.role };
+  }
+
+  // ─── PUBLIC ENDPOINTS ─────────────────────────────────────────────────
 
   @Get(':id')
   getPublicProfile(@Param('id') id: string) {
