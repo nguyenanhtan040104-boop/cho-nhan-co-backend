@@ -28,4 +28,13 @@ export class ItemCommentsController {
   deleteComment(@Request() req: any, @Param('id') id: string) {
     return this.service.deleteComment(req.user.sub || req.user.id, id);
   }
+
+  @Post('like')
+  @UseGuards(AuthGuard('jwt'))
+  toggleLike(
+    @Request() req: any,
+    @Body() body: { targetType: string; targetId: string },
+  ) {
+    return this.service.toggleLike(req.user.sub || req.user.id, body.targetType, body.targetId);
+  }
 }

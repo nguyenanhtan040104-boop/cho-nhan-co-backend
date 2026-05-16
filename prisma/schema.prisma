@@ -510,3 +510,14 @@ model Transaction {
   @@index([status])
   @@index([type])
 }
+
+model ItemLike {
+  key        String   @id
+  userId     String
+  targetType String
+  targetId   String
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([targetType, targetId])
+}
