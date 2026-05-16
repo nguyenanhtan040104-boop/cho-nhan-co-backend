@@ -1,6 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import sharp from 'sharp';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import * as crypto from 'crypto';
 
@@ -36,36 +35,28 @@ export class UploadsService {
     }
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowedTypes.includes(file.mimetype)) {
-      throw new BadRequestException('Chỉ hỗ trợ JPG, PNG, WebP');
+      throw new BadRequestException('Chỉ hỗ trợ JPG, PNG, WebP, GIF');
     }
 
-    // Max 5MB
-    if (file.size > 5 * 1024 * 1024) {
-      throw new BadRequestException('Kích thước ảnh tối đa 5MB');
+    // Max 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('Kích thước ảnh tối đa 10MB');
     }
 
     try {
-      // Resize & optimize
-      const optimized = await sharp(file.buffer)
-        .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
-        .webp({ quality: 80 })
-        .toBuffer();
+      // Upload thẳng lên R2 (không resize)
+      const ext = file.mimetype.split('/')[1] || 'jpg';
+      const key = `products/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
 
-      // Generate unique key
-      const key = `products/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.webp`;
-
-      // Upload to R2
       await this.s3Client.send(
         new PutObjectCommand({
           Bucket: this.bucket,
           Key: key,
-          Body: optimized,
-          ContentType: 'image/webp',
-          Metadata: {
-            'uploaded-by': 'cho-nhan-co',
-          },
+          Body: file.buffer,
+          ContentType: file.mimetype,
+          Metadata: { 'uploaded-by': 'cho-nhan-co' },
         }),
       );
 
