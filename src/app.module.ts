@@ -14,6 +14,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
 import { MarketPricesModule } from './modules/market-prices/market-prices.module';
 import { AdvertisementsModule } from './modules/advertisements/advertisements.module';
 import { WalletModule } from './modules/wallet/wallet.module';
+import { ItemCommentsModule } from './modules/item-comments/item-comments.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -31,6 +32,7 @@ import { WalletModule } from './modules/wallet/wallet.module';
     MarketPricesModule,
     AdvertisementsModule,
     WalletModule,
+    ItemCommentsModule,
   ],
 })
 export class AppModule {}

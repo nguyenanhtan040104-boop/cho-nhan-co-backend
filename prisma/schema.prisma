@@ -33,6 +33,7 @@ model User {
   jobs                     Job[]
   forumPosts               ForumPost[]
   comments                 Comment[]
+  itemComments             ItemComment[]
   postLikes                PostLike[]
   commentLikes             CommentLike[]
   sentMessages             Message[]
@@ -472,6 +473,23 @@ model UserBlock {
 
   @@unique([blockerId, blockedId])
   @@index([blockerId])
+}
+
+model ItemComment {
+  id         String   @id @default(cuid())
+  content    String
+  targetType String   // PRODUCT, REAL_ESTATE, JOB
+  targetId   String
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId   String?
+  parent     ItemComment?  @relation("ItemCommentReplies", fields: [parentId], references: [id])
+  replies    ItemComment[] @relation("ItemCommentReplies")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([targetType, targetId])
+  @@index([userId])
 }
 
 model Transaction {
