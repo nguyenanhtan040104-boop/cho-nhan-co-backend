@@ -13,6 +13,11 @@ export class NotificationsController {
     return this.service.findAll(userId, +page, +limit);
   }
 
+  @Get('unread-count')
+  unreadCount(@CurrentUser('id') userId: string) {
+    return this.service.unreadCount(userId);
+  }
+
   @Put(':id/read')
   @HttpCode(HttpStatus.OK)
   markRead(@Param('id') id: string, @CurrentUser('id') userId: string) {
