@@ -23,9 +23,15 @@ export class ItemCommentsService {
     return null;
   }
 
-  private async sendNotification(userId: string, title: string, body: string, type: string, relatedId?: string) {
+  private getUrl(targetType: string, targetId: string): string {
+    if (targetType === 'REAL_ESTATE') return `/real-estate/${targetId}`;
+    if (targetType === 'JOB') return `/jobs/${targetId}`;
+    return `/products/${targetId}`;
+  }
+
+  private async sendNotification(userId: string, title: string, body: string, type: string, relatedId?: string, data?: any) {
     try {
-      await this.prisma.notification.create({ data: { userId, title, body, type, relatedId } });
+      await this.prisma.notification.create({ data: { userId, title, body, type, relatedId, data: data || null } });
     } catch {}
   }
 
@@ -56,12 +62,14 @@ export class ItemCommentsService {
     const target = await this.getOwnerIdAndTitle(data.targetType, data.targetId);
     if (target && target.ownerId !== userId) {
       const senderName = comment.user.fullName || comment.user.username || 'Ai đó';
+      const url = this.getUrl(data.targetType, data.targetId);
       await this.sendNotification(
         target.ownerId,
         'Bình luận mới',
         `${senderName} đã bình luận vào bài "${target.title}": "${data.content.slice(0, 60)}${data.content.length > 60 ? '...' : ''}"`,
         'COMMENT',
         data.targetId,
+        { url, targetType: data.targetType, targetId: data.targetId },
       );
     }
 
@@ -70,7 +78,8 @@ export class ItemCommentsService {
       const parent = await this.prisma.itemComment.findUnique({ where: { id: data.parentId }, select: { userId: true } });
       if (parent && parent.userId !== userId && parent.userId !== target?.ownerId) {
         const senderName = comment.user.fullName || comment.user.username || 'Ai đó';
-        await this.sendNotification(parent.userId, 'Phản hồi mới', `${senderName} đã phản hồi bình luận của bạn`, 'COMMENT', data.targetId);
+        const url = this.getUrl(data.targetType, data.targetId);
+        await this.sendNotification(parent.userId, 'Phản hồi mới', `${senderName} đã phản hồi bình luận của bạn`, 'COMMENT', data.targetId, { url, targetType: data.targetType, targetId: data.targetId });
       }
     }
 
@@ -101,7 +110,8 @@ export class ItemCommentsService {
     if (target && target.ownerId !== userId) {
       const sender = await this.prisma.user.findUnique({ where: { id: userId }, select: { fullName: true, username: true } });
       const senderName = sender?.fullName || sender?.username || 'Ai đó';
-      await this.sendNotification(target.ownerId, 'Lượt thích mới', `${senderName} đã thích bài "${target.title}"`, 'LIKE', targetId);
+      const url = this.getUrl(targetType, targetId);
+      await this.sendNotification(target.ownerId, 'Lượt thích mới', `${senderName} đã thích bài "${target.title}"`, 'LIKE', targetId, { url, targetType, targetId });
     }
 
     return { liked: true };
