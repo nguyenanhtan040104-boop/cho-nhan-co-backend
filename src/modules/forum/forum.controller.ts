@@ -41,6 +41,13 @@ export class ForumController {
     return this.service.remove(id, userId);
   }
 
+  // ─── My posts ────────────────────────────────────────────
+  @UseGuards(AuthGuard('jwt'))
+  @Get('my-posts')
+  getMyPosts(@CurrentUser('id') userId: string, @Query() query: any) {
+    return this.service.getUserPosts(userId, query);
+  }
+
   // ─── Draft management ────────────────────────────────────
   @UseGuards(AuthGuard('jwt'))
   @Get('my-drafts')

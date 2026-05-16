@@ -151,6 +151,24 @@ export class ForumService {
     return { message: 'Đã xóa bài viết' };
   }
 
+  // My posts (all statuses)
+  async getUserPosts(userId: string, query: { category?: string; limit?: number } = {}) {
+    const { category, limit } = query;
+    const posts = await this.prisma.forumPost.findMany({
+      where: {
+        userId,
+        isDeleted: false,
+        ...(category && { category: category as any }),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: Number(limit) || 50,
+      include: {
+        _count: { select: { comments: true } },
+      },
+    });
+    return { data: posts, total: posts.length };
+  }
+
   // Draft management
   async getUserDrafts(userId: string) {
     const drafts = await this.prisma.forumPost.findMany({
