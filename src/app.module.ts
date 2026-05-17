@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { CloudflareMiddleware } from './common/middleware/cloudflare.middleware';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';  
@@ -35,4 +36,8 @@ import { ItemCommentsModule } from './modules/item-comments/item-comments.module
     ItemCommentsModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CloudflareMiddleware).forRoutes('*');
+  }
+}
