@@ -223,6 +223,7 @@ export class ProductsService {
     quantity?: number;
     location?: string;
     contactPhone?: string;
+    images?: string[];
   }) {
     const product = await this.prisma.product.findUnique({
       where: { id },
@@ -236,17 +237,27 @@ export class ProductsService {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa sản phẩm này');
     }
 
+    // Nếu có images mới thì xoá ảnh cũ và tạo lại
+    if (dto.images !== undefined) {
+      await this.prisma.productImage.deleteMany({ where: { productId: id } });
+    }
+
     const updated = await this.prisma.product.update({
       where: { id },
       data: {
-        title: dto.title || product.title,
-        description: dto.description || product.description,
-        category: (dto.category || product.category) as any,
-        price: dto.price ? Number(dto.price) : product.price,
-        unit: dto.unit || product.unit,
+        title: dto.title ?? product.title,
+        description: dto.description ?? product.description,
+        category: (dto.category ?? product.category) as any,
+        price: dto.price !== undefined ? Number(dto.price) : product.price,
+        unit: dto.unit ?? product.unit,
         quantity: dto.quantity !== undefined ? dto.quantity : product.quantity,
-        location: dto.location || product.location,
-        contactPhone: dto.contactPhone || product.contactPhone,
+        location: dto.location ?? product.location,
+        contactPhone: dto.contactPhone !== undefined ? dto.contactPhone : product.contactPhone,
+        ...(dto.images !== undefined && {
+          images: {
+            create: dto.images.map((url, index) => ({ url, order: index })),
+          },
+        }),
       },
       include: {
         images: { orderBy: { order: 'asc' } },
