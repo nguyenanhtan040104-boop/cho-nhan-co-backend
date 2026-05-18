@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Body, BadRequestException, UseGuards, Request, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
 import { PrismaService } from '../../prisma/prisma.service';
