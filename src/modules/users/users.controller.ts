@@ -121,15 +121,65 @@ export class UsersController {
     return { data, total, page: +page, totalPages: Math.ceil(total / +limit) };
   }
 
+  /** GET /users/admin/login-history - Lịch sử đăng nhập toàn bộ (admin only) */
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Get('admin/login-history')
+  async adminGetLoginHistory(
+    @Query('limit') limit = '200',
+    @Query('status') status?: string,
+  ) {
+    const where: any = {};
+    if (status) where.status = status;
+    const data = await this.prisma.loginHistory.findMany({
+      where,
+      include: {
+        user: { select: { id: true, fullName: true, email: true, username: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: +limit,
+    });
+    return { data };
+  }
+
   /** POST /users/:id/ban - Khóa / mở khóa tài khoản (admin only) */
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post(':id/ban')
-  async adminBanUser(@Param('id') id: string, @Body() body: { banned: boolean }) {
+  async adminBanUser(
+    @Param('id') id: string,
+    @Body() body: { banned: boolean; duration?: '1d' | '7d' | '30d' | 'permanent' },
+  ) {
+    let lockedUntil: Date | null = null;
+    if (body.banned) {
+      if (!body.duration || body.duration === 'permanent') {
+        lockedUntil = new Date('2099-12-31');
+      } else if (body.duration === '1d') {
+        lockedUntil = new Date(Date.now() + 86400_000);
+      } else if (body.duration === '7d') {
+        lockedUntil = new Date(Date.now() + 7 * 86400_000);
+      } else if (body.duration === '30d') {
+        lockedUntil = new Date(Date.now() + 30 * 86400_000);
+      }
+    }
     await this.prisma.user.update({
       where: { id },
-      data: { isActive: !body.banned },
+      data: {
+        isActive: !body.banned,
+        ...(body.banned ? { lockedUntil } : { lockedUntil: null, loginAttempts: 0 }),
+      },
     });
-    return { success: true, banned: body.banned };
+    return { success: true, banned: body.banned, lockedUntil };
+  }
+
+  /** POST /users/:id/hide-all - Ẩn toàn bộ bài đăng của user (admin only) */
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Post(':id/hide-all')
+  async adminHideAllPosts(@Param('id') id: string) {
+    const [p, re, j] = await Promise.all([
+      this.prisma.product.updateMany({ where: { userId: id }, data: { status: 'HIDDEN' } }),
+      this.prisma.realEstate.updateMany({ where: { userId: id }, data: { status: 'HIDDEN' } }),
+      this.prisma.job.updateMany({ where: { userId: id }, data: { status: 'HIDDEN' } }),
+    ]);
+    return { success: true, hidden: { products: p.count, realEstates: re.count, jobs: j.count } };
   }
 
   /** PUT /users/:id/role - Đổi role (admin only) */
