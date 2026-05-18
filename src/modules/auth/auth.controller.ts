@@ -52,6 +52,14 @@ export class AuthController {
     // Kiểm tra username đã tồn tại chưa
     const existingUsername = await this.prisma.user.findUnique({ where: { username } });
     if (existingUsername) {
+      // Nếu chưa xác thực → cho phép gửi lại OTP
+      if (!existingUsername.isEmailVerified && email && existingUsername.email === email) {
+        await this.otpService.generateAndSendOtp(email).catch(() => {});
+        return {
+          message: `Tài khoản chưa xác thực. Mã OTP đã được gửi lại tới ${email}`,
+          user: { id: existingUsername.id, username: existingUsername.username, email: existingUsername.email, isEmailVerified: false },
+        };
+      }
       throw new BadRequestException('Tên đăng nhập này đã được sử dụng');
     }
 
@@ -59,6 +67,14 @@ export class AuthController {
     if (email) {
       const existingEmail = await this.prisma.user.findUnique({ where: { email } });
       if (existingEmail) {
+        // Nếu chưa xác thực → gửi lại OTP
+        if (!existingEmail.isEmailVerified) {
+          await this.otpService.generateAndSendOtp(email).catch(() => {});
+          return {
+            message: `Email chưa được xác thực. Mã OTP đã được gửi lại tới ${email}`,
+            user: { id: existingEmail.id, username: existingEmail.username, email: existingEmail.email, isEmailVerified: false },
+          };
+        }
         throw new BadRequestException('Email này đã được đăng ký');
       }
     }
@@ -75,7 +91,7 @@ export class AuthController {
       },
     });
 
-    // Nếu có email → gửi OTP xác thực (không bắt buộc)
+    // Gửi OTP xác thực
     if (email) {
       this.otpService.generateAndSendOtp(email).catch(() => {});
     }
