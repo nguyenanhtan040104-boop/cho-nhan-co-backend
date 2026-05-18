@@ -12,7 +12,8 @@ model User {
   email                    String?   @unique
   phone                    String?   @unique
   username                 String?   @unique
-  password                 String
+  password                 String    @default("")
+  googleId                 String?   @unique
   fullName                 String?
   avatar                   String?
   avatarUrl                String?

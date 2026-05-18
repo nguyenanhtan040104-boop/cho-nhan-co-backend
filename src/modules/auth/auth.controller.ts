@@ -1,5 +1,6 @@
-import { Controller, Post, Body, BadRequestException, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Body, BadRequestException, UseGuards, Request, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -356,5 +357,72 @@ export class AuthController {
     await this.prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
 
     return { message: 'Đổi mật khẩu thành công' };
+  }
+
+  /**
+   * GET /auth/google - Redirect to Google login
+   */
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleAuth() {}
+
+  /**
+   * GET /auth/google/callback - Google OAuth callback
+   */
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleCallback(@Request() req, @Res() res: Response) {
+    const { googleId, email, fullName, avatarUrl } = req.user;
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://chonhanco.com';
+
+    try {
+      // Tìm user theo googleId hoặc email
+      let user = await this.prisma.user.findFirst({
+        where: { OR: [{ googleId }, { email }] },
+      });
+
+      if (user) {
+        // Cập nhật googleId nếu chưa có
+        if (!user.googleId) {
+          user = await this.prisma.user.update({
+            where: { id: user.id },
+            data: { googleId, avatarUrl: avatarUrl || user.avatarUrl, isEmailVerified: true },
+          });
+        }
+      } else {
+        // Tạo user mới từ Google
+        const username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_') + '_' + Date.now().toString().slice(-4);
+        user = await this.prisma.user.create({
+          data: {
+            googleId,
+            email,
+            fullName,
+            username,
+            password: '',
+            avatarUrl,
+            isEmailVerified: true,
+          },
+        });
+      }
+
+      const tokens = await this.authService.generateTokens(user.id, user.role);
+
+      // Redirect về frontend với tokens
+      const params = new URLSearchParams({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        userId: user.id,
+        fullName: user.fullName || '',
+        email: user.email || '',
+        username: user.username || '',
+        avatarUrl: user.avatarUrl || '',
+        role: user.role,
+      });
+
+      return res.redirect(`${frontendUrl}/auth/google/callback?${params.toString()}`);
+    } catch (err) {
+      return res.redirect(`${frontendUrl}/profile?error=google_failed`);
+    }
   }
 }
