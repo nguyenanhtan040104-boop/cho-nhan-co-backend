@@ -112,7 +112,7 @@ export class ForumService {
         userId,
         images: images || [],
         publishStatus,
-        approvalStatus: 'APPROVED',
+        approvalStatus: 'PENDING',
         ...(scheduledAt && { scheduledAt: new Date(scheduledAt), publishStatus: 'DRAFT' }),
       },
     });
