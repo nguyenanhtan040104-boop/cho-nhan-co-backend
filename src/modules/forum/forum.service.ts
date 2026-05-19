@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ForumCategory } from '../../common/enums';
 import { IsString, IsOptional, IsEnum, IsBoolean, IsArray } from 'class-validator';
@@ -112,7 +112,7 @@ export class ForumService {
         userId,
         images: images || [],
         publishStatus,
-        approvalStatus: 'PENDING',
+        approvalStatus: 'APPROVED',
         ...(scheduledAt && { scheduledAt: new Date(scheduledAt), publishStatus: 'DRAFT' }),
       },
     });
