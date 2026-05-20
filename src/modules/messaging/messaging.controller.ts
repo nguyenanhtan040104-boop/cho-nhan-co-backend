@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+﻿import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MessagingService } from './messaging.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -56,5 +56,21 @@ export class MessagingController {
   @Get('blocks/list')
   getBlockedUsers(@CurrentUser('id') userId: string) {
     return this.service.getBlockedUsers(userId);
+  }
+
+  /** POST /conversations/:id/messages - Gửi tin nhắn qua REST (fallback khi WebSocket down) */
+  @Post(':id/messages')
+  @HttpCode(HttpStatus.CREATED)
+  sendMessage(
+    @Param('id') conversationId: string,
+    @CurrentUser('id') userId: string,
+    @Body() body: { content?: string; type?: string; fileUrl?: string },
+  ) {
+    return this.service.sendMessage(userId, {
+      conversationId,
+      content: body.content,
+      type: body.type,
+      fileUrl: body.fileUrl,
+    });
   }
 }
