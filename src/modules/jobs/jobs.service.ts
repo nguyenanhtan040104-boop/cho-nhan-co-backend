@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JobType, PostStatus } from '../../common/enums';
+import { checkPostLimit } from '../../common/utils/post-limit';
 import { IsString, IsOptional, IsEnum, IsBoolean, IsArray } from 'class-validator';
 
 export class CreateJobDto {
@@ -88,7 +89,13 @@ export class JobsService {
   }
 
   async create(userId: string, dto: CreateJobDto) {
-    return this.prisma.job.create({ data: { ...dto, userId } });
+    // Check monthly post limit before creating
+    await checkPostLimit(this.prisma, userId);
+
+    return this.prisma.job.create({
+      // New posts require admin approval — status set to PENDING
+      data: { ...dto, userId, status: 'PENDING' },
+    });
   }
 
   async update(id: string, userId: string, dto: UpdateJobDto) {

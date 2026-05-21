@@ -1,6 +1,7 @@
 ﻿import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ForumCategory } from '../../common/enums';
+import { checkPostLimit } from '../../common/utils/post-limit';
 import { IsString, IsOptional, IsEnum, IsBoolean, IsArray } from 'class-validator';
 
 export class CreatePostDto {
@@ -102,6 +103,12 @@ export class ForumService {
   }
 
   async create(userId: string, dto: CreatePostDto) {
+    // Check monthly post limit before creating (only for PUBLISHED posts, not drafts)
+    const publishStatus = dto.publishStatus || 'PUBLISHED';
+    if (publishStatus !== 'DRAFT') {
+      await checkPostLimit(this.prisma, userId);
+    }
+
     const { images, scheduledAt, ...rest } = dto;
     const publishStatus = rest.publishStatus || 'PUBLISHED';
     delete rest.publishStatus;

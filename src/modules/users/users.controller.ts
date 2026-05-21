@@ -5,6 +5,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { OtpService } from '../auth/otp.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdminGuard } from '../../common/guards/admin.guard';
+import { getMonthlyUsage } from '../../common/utils/post-limit';
 
 @Controller('users')
 export class UsersController {
@@ -67,6 +68,15 @@ export class UsersController {
     await this.prisma.user.update({ where: { id: userId }, data: { isEmailVerified: true } });
 
     return { message: 'Xác thực email thành công' };
+  }
+
+  /**
+   * GET /users/me/monthly-usage - Lượt đăng bài tháng này
+   */
+  @UseGuards(AuthGuard('jwt'))
+  @Get('me/monthly-usage')
+  async getMonthlyUsage(@CurrentUser('id') userId: string) {
+    return getMonthlyUsage(this.prisma, userId);
   }
 
   /**

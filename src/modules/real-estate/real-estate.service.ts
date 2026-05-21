@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RealEstateType, RealEstateStatus } from '../../common/enums';
+import { checkPostLimit } from '../../common/utils/post-limit';
 import { IsString, IsNumber, IsOptional, IsEnum, IsPositive } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -98,8 +99,12 @@ export class RealEstateService {
   }
 
   async create(userId: string, dto: CreateRealEstateDto) {
+    // Check monthly post limit before creating
+    await checkPostLimit(this.prisma, userId);
+
     return this.prisma.realEstate.create({
-      data: { ...dto, userId },
+      // New posts require admin approval — status set to PENDING
+      data: { ...dto, userId, status: 'PENDING' },
     });
   }
 

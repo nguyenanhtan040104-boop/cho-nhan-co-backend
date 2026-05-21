@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { checkPostLimit } from '../../common/utils/post-limit';
 
 @Injectable()
 export class ProductsService {
@@ -27,6 +28,9 @@ export class ProductsService {
       throw new BadRequestException('Thiếu thông tin bắt buộc');
     }
 
+    // Check monthly post limit before creating
+    await checkPostLimit(this.prisma, userId);
+
     const product = await this.prisma.product.create({
       data: {
         userId,
@@ -38,7 +42,8 @@ export class ProductsService {
         quantity: dto.quantity || 1,
         location: dto.location,
         contactPhone: dto.contactPhone,
-        status: 'ACTIVE',
+        // New posts require admin approval — set to PENDING (mapped to 'PENDING' status)
+        status: 'PENDING',
         images: {
           create: dto.images?.map((url, index) => ({
             url,
