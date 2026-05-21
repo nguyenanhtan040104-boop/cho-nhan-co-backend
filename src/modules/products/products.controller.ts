@@ -143,4 +143,22 @@ export class ProductsController {
       data: { isVip: body.isVip, vipExpiresAt: body.isVip ? undefined : null },
     });
   }
+
+  @Get('admin/pending')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async adminGetPending(@Query('page') page = '1', @Query('limit') limit = '20') {
+    return this.productsService.adminGetPending(+page, +limit);
+  }
+
+  @Patch(':id/approve')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async adminApprove(@Param('id') id: string) {
+    return this.productsService.adminApprove(id);
+  }
+
+  @Patch(':id/reject')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async adminReject(@Param('id') id: string) {
+    return this.productsService.adminReject(id);
+  }
 }

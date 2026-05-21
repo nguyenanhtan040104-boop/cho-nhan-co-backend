@@ -377,6 +377,33 @@ export class ProductsService {
     });
   }
 
+  // =================== ADMIN: PENDING CONTENT ===================
+  async adminGetPending(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const where = { isDeleted: false, status: 'PENDING' as any };
+    const [data, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip, take: limit,
+        include: {
+          images: { take: 1, orderBy: { order: 'asc' } },
+          user: { select: { id: true, username: true, fullName: true, avatarUrl: true } },
+        },
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  async adminApprove(id: string) {
+    return this.prisma.product.update({ where: { id }, data: { status: 'ACTIVE' as any } });
+  }
+
+  async adminReject(id: string) {
+    return this.prisma.product.update({ where: { id }, data: { status: 'REJECTED' as any } });
+  }
+
   // =================== UPGRADE TO VIP ===================
   async upgradeToVip(id: string, userId: string, durationDays: number) {
     const product = await this.prisma.product.findUnique({

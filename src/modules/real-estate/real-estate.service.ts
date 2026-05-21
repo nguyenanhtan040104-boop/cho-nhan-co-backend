@@ -52,6 +52,7 @@ export class RealEstateService {
 
     const where: any = {
       isDeleted: false,
+      status: 'ACTIVE',
       ...(type && { type }),
       ...(address && { address: { contains: address, mode: 'insensitive' } }),
       ...(search && {
@@ -159,6 +160,32 @@ export class RealEstateService {
 
   async adminToggleVip(id: string, isVip: boolean) {
     return this.prisma.realEstate.update({ where: { id }, data: { isVip } });
+  }
+
+  async adminGetPending(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const where = { isDeleted: false, status: 'PENDING' };
+    const [data, total] = await Promise.all([
+      this.prisma.realEstate.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip, take: limit,
+        include: {
+          images: { take: 1, orderBy: { order: 'asc' } },
+          user: { select: { id: true, username: true, fullName: true, avatarUrl: true } },
+        },
+      }),
+      this.prisma.realEstate.count({ where }),
+    ]);
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  async adminApprove(id: string) {
+    return this.prisma.realEstate.update({ where: { id }, data: { status: 'ACTIVE' as any } });
+  }
+
+  async adminReject(id: string) {
+    return this.prisma.realEstate.update({ where: { id }, data: { status: 'REJECTED' as any } });
   }
 
   private async checkOwnership(id: string, userId: string) {

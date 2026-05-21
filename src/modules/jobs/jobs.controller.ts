@@ -55,4 +55,22 @@ export class JobsController {
   adminToggleVip(@Param('id') id: string, @Body() body: { isVip: boolean }) {
     return this.service.adminToggleVip(id, body.isVip);
   }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Get('admin/pending')
+  adminGetPending(@Query('page') page = '1', @Query('limit') limit = '20') {
+    return this.service.adminGetPending(+page, +limit);
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Patch(':id/approve')
+  adminApprove(@Param('id') id: string) {
+    return this.service.adminApprove(id);
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Patch(':id/reject')
+  adminReject(@Param('id') id: string) {
+    return this.service.adminReject(id);
+  }
 }

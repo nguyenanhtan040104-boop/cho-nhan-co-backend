@@ -131,6 +131,31 @@ export class JobsService {
     return this.prisma.job.update({ where: { id }, data: { isVip } });
   }
 
+  async adminGetPending(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const where = { isDeleted: false, status: 'PENDING' as any };
+    const [data, total] = await Promise.all([
+      this.prisma.job.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip, take: limit,
+        include: {
+          user: { select: { id: true, username: true, fullName: true, avatarUrl: true } },
+        },
+      }),
+      this.prisma.job.count({ where }),
+    ]);
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  async adminApprove(id: string) {
+    return this.prisma.job.update({ where: { id }, data: { status: PostStatus.ACTIVE } });
+  }
+
+  async adminReject(id: string) {
+    return this.prisma.job.update({ where: { id }, data: { status: 'REJECTED' as any } });
+  }
+
   private async checkOwnership(id: string, userId: string) {
     const job = await this.prisma.job.findUnique({ where: { id }, select: { userId: true } });
     if (!job) throw new NotFoundException();
