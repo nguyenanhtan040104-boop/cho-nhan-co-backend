@@ -103,15 +103,14 @@ export class ForumService {
   }
 
   async create(userId: string, dto: CreatePostDto) {
-    // Check monthly post limit before creating (only for PUBLISHED posts, not drafts)
-    const publishStatus = dto.publishStatus || 'PUBLISHED';
-    if (publishStatus !== 'DRAFT') {
-      await checkPostLimit(this.prisma, userId);
-    }
-
     const { images, scheduledAt, ...rest } = dto;
     const publishStatus = rest.publishStatus || 'PUBLISHED';
     delete rest.publishStatus;
+
+    // Check monthly post limit before creating (only for PUBLISHED posts, not drafts)
+    if (publishStatus !== 'DRAFT') {
+      await checkPostLimit(this.prisma, userId);
+    }
 
     return this.prisma.forumPost.create({
       data: {
