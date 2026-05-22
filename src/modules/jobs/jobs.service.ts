@@ -47,7 +47,7 @@ export class JobsService {
 
     const where: any = {
       isDeleted: false,
-      status: PostStatus.ACTIVE,
+      status: { notIn: ['pending', 'PENDING', 'rejected', 'REJECTED'] },
       ...(type && { type }),
       ...(category && { category }),
       ...(location && { location: { contains: location, mode: 'insensitive' } }),
@@ -93,8 +93,8 @@ export class JobsService {
     await checkPostLimit(this.prisma, userId);
 
     return this.prisma.job.create({
-      // New posts require admin approval — status set to PENDING
-      data: { ...dto, userId, status: 'PENDING' },
+      // New posts require admin approval — status set to pending
+      data: { ...dto, userId, status: 'pending' },
     });
   }
 
@@ -133,7 +133,7 @@ export class JobsService {
 
   async adminGetPending(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
-    const where = { isDeleted: false, status: 'PENDING' as any };
+    const where: any = { isDeleted: false, status: { in: ['pending', 'PENDING'] } };
     const [data, total] = await Promise.all([
       this.prisma.job.findMany({
         where,
@@ -149,11 +149,11 @@ export class JobsService {
   }
 
   async adminApprove(id: string) {
-    return this.prisma.job.update({ where: { id }, data: { status: PostStatus.ACTIVE } });
+    return this.prisma.job.update({ where: { id }, data: { status: 'active' } });
   }
 
   async adminReject(id: string) {
-    return this.prisma.job.update({ where: { id }, data: { status: 'REJECTED' as any } });
+    return this.prisma.job.update({ where: { id }, data: { status: 'rejected' } });
   }
 
   private async checkOwnership(id: string, userId: string) {

@@ -52,7 +52,7 @@ export class RealEstateService {
 
     const where: any = {
       isDeleted: false,
-      status: 'ACTIVE',
+      status: { notIn: ['pending', 'PENDING', 'rejected', 'REJECTED'] },
       ...(type && { type }),
       ...(address && { address: { contains: address, mode: 'insensitive' } }),
       ...(search && {
@@ -104,8 +104,8 @@ export class RealEstateService {
     await checkPostLimit(this.prisma, userId);
 
     return this.prisma.realEstate.create({
-      // New posts require admin approval — status set to PENDING
-      data: { ...dto, userId, status: 'PENDING' },
+      // New posts require admin approval — status set to pending
+      data: { ...dto, userId, status: 'pending' },
     });
   }
 
@@ -164,7 +164,7 @@ export class RealEstateService {
 
   async adminGetPending(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
-    const where = { isDeleted: false, status: 'PENDING' };
+    const where: any = { isDeleted: false, status: { in: ['pending', 'PENDING'] } };
     const [data, total] = await Promise.all([
       this.prisma.realEstate.findMany({
         where,
@@ -181,11 +181,11 @@ export class RealEstateService {
   }
 
   async adminApprove(id: string) {
-    return this.prisma.realEstate.update({ where: { id }, data: { status: 'ACTIVE' as any } });
+    return this.prisma.realEstate.update({ where: { id }, data: { status: 'active' } });
   }
 
   async adminReject(id: string) {
-    return this.prisma.realEstate.update({ where: { id }, data: { status: 'REJECTED' as any } });
+    return this.prisma.realEstate.update({ where: { id }, data: { status: 'rejected' } });
   }
 
   private async checkOwnership(id: string, userId: string) {

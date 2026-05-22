@@ -42,8 +42,8 @@ export class ProductsService {
         quantity: dto.quantity || 1,
         location: dto.location,
         contactPhone: dto.contactPhone,
-        // New posts require admin approval — set to PENDING (mapped to 'PENDING' status)
-        status: 'PENDING',
+        // New posts require admin approval — set to pending
+        status: 'pending',
         images: {
           create: dto.images?.map((url, index) => ({
             url,
@@ -84,7 +84,7 @@ export class ProductsService {
 
     const where: any = {
       isDeleted: false,
-      status: 'ACTIVE',
+      status: { notIn: ['pending', 'PENDING', 'rejected', 'REJECTED'] },
     };
 
     // Search by title or description
@@ -380,7 +380,7 @@ export class ProductsService {
   // =================== ADMIN: PENDING CONTENT ===================
   async adminGetPending(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
-    const where = { isDeleted: false, status: 'PENDING' as any };
+    const where: any = { isDeleted: false, status: { in: ['pending', 'PENDING'] } };
     const [data, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
@@ -397,11 +397,11 @@ export class ProductsService {
   }
 
   async adminApprove(id: string) {
-    return this.prisma.product.update({ where: { id }, data: { status: 'ACTIVE' as any } });
+    return this.prisma.product.update({ where: { id }, data: { status: 'active' } });
   }
 
   async adminReject(id: string) {
-    return this.prisma.product.update({ where: { id }, data: { status: 'REJECTED' as any } });
+    return this.prisma.product.update({ where: { id }, data: { status: 'rejected' } });
   }
 
   // =================== UPGRADE TO VIP ===================
