@@ -54,6 +54,17 @@ export class ProductsController {
     return this.productsService.getUserProducts(userId, { page: +page, limit: +limit });
   }
 
+  @Get('my-stats')
+  @UseGuards(AuthGuard('jwt'))
+  getMyStats(@CurrentUser('id') userId: string) {
+    return this.productsService.getMyStats(userId);
+  }
+
+  @Get(':id/related')
+  findRelated(@Param('id') id: string) {
+    return this.productsService.findRelated(id);
+  }
+
   @Get(':id')
   async getById(@Param('id') id: string) {
     return this.productsService.getById(id);

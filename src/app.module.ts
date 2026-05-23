@@ -16,6 +16,9 @@ import { MarketPricesModule } from './modules/market-prices/market-prices.module
 import { AdvertisementsModule } from './modules/advertisements/advertisements.module';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { ItemCommentsModule } from './modules/item-comments/item-comments.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { PushModule } from './modules/push/push.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -34,6 +37,8 @@ import { ItemCommentsModule } from './modules/item-comments/item-comments.module
     AdvertisementsModule,
     WalletModule,
     ItemCommentsModule,
+    ReviewsModule,
+    PushModule,
   ],
 })
 export class AppModule implements NestModule {

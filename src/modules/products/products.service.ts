@@ -437,4 +437,46 @@ export class ProductsService {
       data: updated,
     };
   }
+
+  // =================== RELATED PRODUCTS ===================
+  async findRelated(id: string, limit = 6) {
+    const product = await this.prisma.product.findUnique({ where: { id }, select: { category: true } });
+    if (!product) return [];
+    return this.prisma.product.findMany({
+      where: {
+        category: product.category,
+        id: { not: id },
+        isDeleted: false,
+        status: { notIn: ['pending', 'PENDING', 'rejected', 'REJECTED'] },
+      },
+      include: { images: { orderBy: { order: 'asc' }, take: 1 } },
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // =================== SELLER STATS ===================
+  async getMyStats(userId: string) {
+    const [products, aggregate] = await Promise.all([
+      this.prisma.product.findMany({
+        where: { userId, isDeleted: false },
+        select: { id: true, title: true, viewCount: true, status: true, createdAt: true, images: { orderBy: { order: 'asc' }, take: 1 } },
+        orderBy: { viewCount: 'desc' },
+      }),
+      this.prisma.product.aggregate({
+        where: { userId, isDeleted: false },
+        _sum: { viewCount: true },
+        _count: { id: true },
+      }),
+    ]);
+    const pendingCount = products.filter(p => ['pending', 'PENDING'].includes(p.status)).length;
+    const activeCount = products.filter(p => ['active', 'ACTIVE'].includes(p.status)).length;
+    return {
+      totalProducts: aggregate._count.id,
+      totalViews: aggregate._sum.viewCount || 0,
+      pendingCount,
+      activeCount,
+      topProducts: products.slice(0, 5),
+    };
+  }
 }

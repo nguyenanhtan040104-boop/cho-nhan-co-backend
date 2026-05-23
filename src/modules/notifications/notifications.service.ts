@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationType } from '../../common/enums';
+import { PushService } from '../push/push.service';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private push: PushService,
+  ) {}
 
   async create(data: {
     userId: string;
@@ -13,7 +17,14 @@ export class NotificationsService {
     type: NotificationType;
     data?: any;
   }) {
-    return this.prisma.notification.create({ data });
+    const notif = await this.prisma.notification.create({ data });
+    // Gửi push notification (nếu VAPID đã cấu hình)
+    this.push.sendToUser(data.userId, {
+      title: data.title,
+      body: data.body,
+      url: (data.data as any)?.url || '/',
+    }).catch(() => {});
+    return notif;
   }
 
   async findAll(userId: string, page = 1, limit = 20) {
