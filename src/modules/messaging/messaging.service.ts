@@ -166,6 +166,17 @@ export class MessagingService {
     });
   }
 
+  async unreadMessageCount(userId: string) {
+    const count = await this.prisma.message.count({
+      where: {
+        conversation: { participants: { some: { userId } } },
+        senderId: { not: userId },
+        isRead: false,
+      },
+    });
+    return { count };
+  }
+
   async blockUser(userId: string, targetUserId: string) {
     await this.prisma.userBlock.upsert({
       where: { blockerId_blockedId: { blockerId: userId, blockedId: targetUserId } },

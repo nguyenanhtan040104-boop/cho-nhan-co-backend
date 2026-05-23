@@ -13,6 +13,11 @@ export class MessagingController {
     return this.service.getConversations(userId);
   }
 
+  @Get('unread-count')
+  unreadMessageCount(@CurrentUser('id') userId: string) {
+    return this.service.unreadMessageCount(userId);
+  }
+
   @Post()
   getOrCreate(@CurrentUser('id') userId: string, @Body('targetUserId') targetUserId: string) {
     return this.service.getOrCreateConversation(userId, targetUserId);
