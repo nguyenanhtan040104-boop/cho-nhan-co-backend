@@ -87,12 +87,21 @@ export class ProductsService {
       status: { notIn: ['pending', 'PENDING', 'rejected', 'REJECTED'] },
     };
 
-    // Search by title or description
+    // Search by title or description (accent-insensitive via unaccent, fallback to ilike)
     if (query.search) {
-      where.OR = [
-        { title: { contains: query.search, mode: 'insensitive' } },
-        { description: { contains: query.search, mode: 'insensitive' } },
-      ];
+      try {
+        const pattern = `%${query.search}%`;
+        const rows = await this.prisma.$queryRaw<{ id: string }[]>(
+          Prisma.sql`SELECT id FROM "Product" WHERE unaccent(lower(title)) LIKE unaccent(lower(${pattern})) OR unaccent(lower(description)) LIKE unaccent(lower(${pattern}))`
+        );
+        where.id = { in: rows.map((r) => r.id) };
+      } catch {
+        // unaccent extension not available, fall back to regular insensitive search
+        where.OR = [
+          { title: { contains: query.search, mode: 'insensitive' } },
+          { description: { contains: query.search, mode: 'insensitive' } },
+        ];
+      }
     }
 
     // Filter by category
