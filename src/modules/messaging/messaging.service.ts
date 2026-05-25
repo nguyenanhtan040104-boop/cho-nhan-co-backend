@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MessageType } from '../../common/enums';
 
@@ -23,12 +23,30 @@ export class MessagingService {
       orderBy: { conversation: { updatedAt: 'desc' } },
     });
 
+    const conversationIds = participants.map(p => p.conversationId);
+
+    // Dem tin chua doc theo tung cuoc tro chuyen (1 query duy nhat)
+    const unreadGroups = conversationIds.length > 0
+      ? await this.prisma.message.groupBy({
+          by: ['conversationId'],
+          where: {
+            conversationId: { in: conversationIds },
+            senderId: { not: userId },
+            isRead: false,
+          },
+          _count: { id: true },
+        })
+      : [];
+
+    const unreadMap = new Map(unreadGroups.map(g => [g.conversationId, g._count.id]));
+
     return participants.map(p => ({
       ...p.conversation,
       isStarred: p.isStarred,
       isMuted: p.isMuted,
       lastReadAt: p.lastReadAt,
       otherUser: p.conversation.participants[0]?.user,
+      unreadCount: unreadMap.get(p.conversationId) ?? 0,
     }));
   }
 
