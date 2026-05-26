@@ -310,6 +310,62 @@ export class WalletService {
     return { data, total, page, totalPages: Math.ceil(total / limit) };
   }
 
+  /**
+   * Buy VIP for an advertisement — separate flow from product/job/real_estate VIP.
+   * Pricing varies by duration:
+   *   - 7 days  → 50.000đ
+   *   - 30 days → 149.000đ
+   */
+  async buyAdVip(userId: string, adId: string, durationDays: 7 | 30) {
+    const AD_VIP_PRICES: Record<number, number> = { 7: 50000, 30: 149000 };
+    const price = AD_VIP_PRICES[durationDays];
+    if (!price) throw new BadRequestException('Gói thời gian không hợp lệ (chỉ chấp nhận 7 hoặc 30 ngày)');
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Người dùng không tồn tại');
+    if (Number(user.balance) < price) {
+      throw new BadRequestException(
+        `Số dư không đủ. Cần ${price.toLocaleString('vi-VN')}đ, hiện có ${Number(user.balance).toLocaleString('vi-VN')}đ. Vui lòng nạp thêm tiền.`,
+      );
+    }
+
+    const ad = await this.prisma.advertisement.findUnique({ where: { id: adId } });
+    if (!ad || ad.isDeleted) throw new NotFoundException('Quảng cáo không tồn tại');
+    if (ad.userId !== userId) throw new ForbiddenException('Không có quyền nâng VIP cho quảng cáo này');
+
+    // Stack onto existing VIP if still active
+    const now = Date.now();
+    const baseTime = ad.vipExpiresAt && ad.vipExpiresAt.getTime() > now
+      ? ad.vipExpiresAt.getTime()
+      : now;
+    const vipExpiresAt = new Date(baseTime + durationDays * 86400000);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: userId }, data: { balance: { decrement: price } } });
+      await tx.transaction.create({
+        data: {
+          userId,
+          type: 'buy_vip',
+          amount: -price,
+          description: `Mua VIP Quảng cáo (${durationDays} ngày): ${ad.title.slice(0, 40)}`,
+          status: 'completed',
+          refType: 'advertisement',
+          refId: adId,
+        },
+      });
+      await tx.advertisement.update({
+        where: { id: adId },
+        data: { isVip: true, vipExpiresAt },
+      });
+    });
+
+    return {
+      message: `Nâng VIP thành công! Hết hạn: ${vipExpiresAt.toLocaleDateString('vi-VN')}`,
+      vipExpiresAt,
+      price,
+    };
+  }
+
   async buyVip(userId: string, refType: 'product' | 'job' | 'real_estate', refId: string, durationDays = 30) {
     const VIP_PRICES: Record<string, number> = { product: 50000, job: 50000, real_estate: 100000 };
     const price = VIP_PRICES[refType];

@@ -1,14 +1,18 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AdvertisementsService } from './advertisements.service';
+import { WalletService } from '../wallet/wallet.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AdminGuard } from '../../common/guards/admin.guard';
 
 @ApiTags('Advertisements')
 @Controller('advertisements')
 export class AdvertisementsController {
-  constructor(private service: AdvertisementsService) {}
+  constructor(
+    private service: AdvertisementsService,
+    private walletService: WalletService,
+  ) {}
 
   @Get()
   getAll(
@@ -69,5 +73,20 @@ export class AdvertisementsController {
   @ApiBearerAuth()
   adminToggleVip(@Param('id') id: string, @Body() body: { isVip: boolean }) {
     return this.service.adminToggleVip(id, body.isVip);
+  }
+
+  /** POST /advertisements/:id/buy-vip - User buys VIP for their ad (separate from product/job/RE) */
+  @Post(':id/buy-vip')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  buyVip(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @Body() body: { durationDays: 7 | 30 },
+  ) {
+    if (body.durationDays !== 7 && body.durationDays !== 30) {
+      throw new BadRequestException('Chỉ chấp nhận gói 7 hoặc 30 ngày');
+    }
+    return this.walletService.buyAdVip(userId, id, body.durationDays);
   }
 }
