@@ -92,4 +92,13 @@ export class WalletController {
   rejectTopUp(@Param('id') id: string, @Body() body: { adminNote?: string }) {
     return this.walletService.rejectTopUp(id, body.adminNote);
   }
+
+  /** POST /wallet/admin/credit — Admin cộng tiền thủ công (test/debug) */
+  @UseGuards(AuthGuard('jwt'))
+  @Post('admin/credit')
+  adminCredit(
+    @Body() body: { userId: string; amount: number; note?: string },
+  ) {
+    return this.walletService.adminCreditBalance(body.userId, body.amount, body.note);
+  }
 }

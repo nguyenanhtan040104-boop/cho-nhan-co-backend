@@ -256,6 +256,26 @@ export class WalletService {
     return { message: 'Xác nhận nạp tiền thành công' };
   }
 
+  /** Admin cộng tiền thẳng vào ví — dùng để test, không qua PayOS */
+  async adminCreditBalance(userId: string, amount: number, note = 'Admin cộng tiền (test)') {
+    if (amount <= 0) throw new BadRequestException('Số tiền phải lớn hơn 0');
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Người dùng không tồn tại');
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { balance: { increment: amount } } }),
+      this.prisma.transaction.create({
+        data: {
+          userId,
+          type: 'top_up',
+          amount,
+          description: note,
+          status: 'completed',
+        },
+      }),
+    ]);
+    return { message: `Đã cộng ${amount.toLocaleString('vi-VN')}đ vào ví của ${user.fullName || user.email}` };
+  }
+
   async rejectTopUp(transactionId: string, adminNote?: string) {
     const tx = await this.prisma.transaction.findUnique({ where: { id: transactionId } });
     if (!tx) throw new NotFoundException('Giao dịch không tồn tại');
