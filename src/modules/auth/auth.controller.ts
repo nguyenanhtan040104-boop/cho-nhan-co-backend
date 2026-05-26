@@ -176,11 +176,18 @@ export class AuthController {
   ) {
     const identifier = body.identifier || body.email;
     const { password } = body;
-    const ipAddress = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+    const rawIp = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+    const ipAddress = String(rawIp).split(',')[0].trim();
     const userAgent = req.headers['user-agent'] || 'unknown';
 
     if (!identifier || !password) {
       throw new BadRequestException('Tên đăng nhập và mật khẩu là bắt buộc');
+    }
+
+    // ── Blocked IP check ──────────────────────────────────────────────
+    const blockedIpRecord = await this.prisma.blockedIp.findUnique({ where: { ip: ipAddress } });
+    if (blockedIpRecord) {
+      throw new BadRequestException('Địa chỉ IP của bạn đã bị chặn. Vui lòng liên hệ quản trị viên.');
     }
 
     const user = await this.prisma.user.findFirst({

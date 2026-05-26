@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Body, Param, Query, UseGuards, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Body, Param, Query, UseGuards, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService, UpdateProfileDto } from './users.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -205,6 +205,39 @@ export class UsersController {
       data: { role: body.role.toLowerCase() },
     });
     return { success: true, role: body.role };
+  }
+
+  // ─── IP BLOCKING (admin only) ─────────────────────────────────────────
+
+  /** GET /users/admin/blocked-ips */
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Get('admin/blocked-ips')
+  async getBlockedIps() {
+    return this.prisma.blockedIp.findMany({ orderBy: { createdAt: 'desc' } });
+  }
+
+  /** POST /users/admin/block-ip */
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Post('admin/block-ip')
+  async blockIp(
+    @Body() body: { ip: string; reason?: string },
+    @CurrentUser('id') adminId: string,
+  ) {
+    if (!body.ip) throw new BadRequestException('IP không được để trống');
+    return this.prisma.blockedIp.upsert({
+      where: { ip: body.ip },
+      update: { reason: body.reason, blockedBy: adminId },
+      create: { ip: body.ip, reason: body.reason, blockedBy: adminId },
+    });
+  }
+
+  /** DELETE /users/admin/block-ip/:ip */
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Delete('admin/block-ip/:ip')
+  async unblockIp(@Param('ip') ip: string) {
+    const decoded = decodeURIComponent(ip);
+    await this.prisma.blockedIp.deleteMany({ where: { ip: decoded } });
+    return { success: true, message: `Đã bỏ chặn ${decoded}` };
   }
 
   // ─── PUBLIC ENDPOINTS ─────────────────────────────────────────────────

@@ -533,3 +533,13 @@ model PushSubscription {
 
   @@index([userId])
 }
+
+model BlockedIp {
+  id        String   @id @default(cuid())
+  ip        String   @unique
+  reason    String?
+  blockedBy String?
+  createdAt DateTime @default(now())
+
+  @@index([ip])
+}
