@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards, RawBodyRequest, R
 import { AuthGuard } from '@nestjs/passport';
 import { WalletService } from './wallet.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AdminGuard } from '../../common/guards/admin.guard';
 
 @Controller('wallet')
 export class WalletController {
@@ -68,33 +69,34 @@ export class WalletController {
     return this.walletService.buyVip(userId, body.refType, body.refId, body.durationDays);
   }
 
-  // Admin endpoints
-  @UseGuards(AuthGuard('jwt'))
+  // ── Admin-only endpoints (JWT + AdminGuard) ──────────────────────────
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('admin/pending')
   getPendingTopUps() {
     return this.walletService.getPendingTopUps();
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('admin/transactions')
   getAllTransactions(@Query() query: any) {
     return this.walletService.getAllTransactions(query);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post('admin/confirm/:id')
   confirmTopUp(@Param('id') id: string, @Body() body: { adminNote?: string }) {
     return this.walletService.confirmTopUp(id, body.adminNote);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post('admin/reject/:id')
   rejectTopUp(@Param('id') id: string, @Body() body: { adminNote?: string }) {
     return this.walletService.rejectTopUp(id, body.adminNote);
   }
 
   /** POST /wallet/admin/credit — Admin cộng tiền thủ công (test/debug) */
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post('admin/credit')
   adminCredit(
     @Body() body: { userId: string; amount: number; note?: string },
