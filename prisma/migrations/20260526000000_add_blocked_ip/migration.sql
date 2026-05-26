@@ -1,5 +1,5 @@
--- CreateTable (idempotent — safe to re-run if previous attempt partially succeeded)
-CREATE TABLE IF NOT EXISTS "BlockedIp" (
+-- CreateTable
+CREATE TABLE "BlockedIp" (
     "id" TEXT NOT NULL,
     "ip" TEXT NOT NULL,
     "reason" TEXT,
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS "BlockedIp" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "BlockedIp_ip_key" ON "BlockedIp"("ip");
+CREATE UNIQUE INDEX "BlockedIp_ip_key" ON "BlockedIp"("ip");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "BlockedIp_ip_idx" ON "BlockedIp"("ip");
+CREATE INDEX "BlockedIp_ip_idx" ON "BlockedIp"("ip");
