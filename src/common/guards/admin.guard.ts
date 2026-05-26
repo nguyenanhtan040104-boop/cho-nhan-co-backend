@@ -16,7 +16,7 @@ export class AdminGuard implements CanActivate {
       select: { role: true },
     });
 
-    if (user?.role !== 'admin') {
+    if (user?.role?.toUpperCase() !== 'ADMIN') {
       throw new ForbiddenException('Chỉ admin mới có quyền thực hiện thao tác này');
     }
 
