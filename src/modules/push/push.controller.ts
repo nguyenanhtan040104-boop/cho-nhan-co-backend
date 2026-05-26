@@ -16,7 +16,7 @@ export class PushController {
   @Delete('unsubscribe')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
-  unsubscribe(@Body('endpoint') endpoint: string) {
-    return this.service.unsubscribe(endpoint);
+  unsubscribe(@Body('endpoint') endpoint: string, @CurrentUser('id') userId: string) {
+    return this.service.unsubscribe(endpoint, userId);
   }
 }

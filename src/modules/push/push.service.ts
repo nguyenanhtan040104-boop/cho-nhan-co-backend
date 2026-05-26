@@ -41,9 +41,10 @@ export class PushService {
     return { message: 'Đăng ký thành công' };
   }
 
-  async unsubscribe(endpoint: string) {
+  async unsubscribe(endpoint: string, userId: string) {
     try {
-      await this.prisma.pushSubscription.deleteMany({ where: { endpoint } });
+      // Scope by userId so a user can only unsubscribe their own push endpoints
+      await this.prisma.pushSubscription.deleteMany({ where: { endpoint, userId } });
     } catch {}
     return { message: 'Đã hủy đăng ký' };
   }

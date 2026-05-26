@@ -6,6 +6,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ForumService, CreatePostDto, CreateCommentDto } from './forum.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { EmailVerifiedGuard } from '../../common/guards/email-verified.guard';
+import { AdminGuard } from '../../common/guards/admin.guard';
 
 @Controller('forum')
 export class ForumController {
@@ -62,42 +63,42 @@ export class ForumController {
     return this.service.publishDraft(id, userId);
   }
 
-  // ─── Approval workflow (admin only — checked inside service for now) ──
-  @UseGuards(AuthGuard('jwt'))
+  // ─── Approval workflow (admin only) ──────────────────────
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('admin/pending')
   getPendingPosts(@Query() query: any) {
     return this.service.getPendingPosts(query);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post('admin/posts/:id/approve')
   @HttpCode(HttpStatus.OK)
   approvePost(@Param('id') id: string) {
     return this.service.approvePost(id);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post('admin/posts/:id/reject')
   @HttpCode(HttpStatus.OK)
   rejectPost(@Param('id') id: string, @Body('reason') reason: string) {
     return this.service.rejectPost(id, reason);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post('admin/posts/:id/hide')
   @HttpCode(HttpStatus.OK)
   hidePost(@Param('id') id: string) {
     return this.service.hidePost(id);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post('admin/posts/:id/unhide')
   @HttpCode(HttpStatus.OK)
   unhidePost(@Param('id') id: string) {
     return this.service.unhidePost(id);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Delete('admin/posts/:id')
   @HttpCode(HttpStatus.OK)
   adminDeletePost(@Param('id') id: string) {
@@ -113,17 +114,18 @@ export class ForumController {
     @CurrentUser('id') userId: string,
     @CurrentUser('role') role: string,
   ) {
-    return this.service.bulkDelete(ids, userId, role === 'admin');
+    // Fix VULN-5: case-insensitive role check (DB stores 'ADMIN' uppercase)
+    return this.service.bulkDelete(ids, userId, role?.toUpperCase() === 'ADMIN');
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post('admin/posts/bulk-approve')
   @HttpCode(HttpStatus.OK)
   bulkApprove(@Body('ids') ids: string[]) {
     return this.service.bulkApprove(ids);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post('admin/posts/bulk-reject')
   @HttpCode(HttpStatus.OK)
   bulkReject(@Body('ids') ids: string[], @Body('reason') reason: string) {
