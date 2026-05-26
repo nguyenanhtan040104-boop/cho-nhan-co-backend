@@ -119,6 +119,39 @@ export class AdvertisementsService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
+  /**
+   * Active VIP ads currently within their start/end window.
+   * Used by the rolling banner at the bottom of every page + the on-open popup.
+   */
+  async getFeatured(limit = 10) {
+    const now = new Date();
+    const ads = await this.prisma.advertisement.findMany({
+      where: {
+        isDeleted: false,
+        isActive: true,
+        isVip: true,
+        AND: [
+          { OR: [{ startDate: null }, { startDate: { lte: now } }] },
+          { OR: [{ endDate: null }, { endDate: { gte: now } }] },
+          { OR: [{ vipExpiresAt: null }, { vipExpiresAt: { gte: now } }] },
+        ],
+      },
+      orderBy: [{ vipExpiresAt: 'desc' }, { createdAt: 'desc' }],
+      take: limit,
+      select: {
+        id: true,
+        title: true,
+        businessName: true,
+        description: true,
+        category: true,
+        images: true,
+        location: true,
+        endDate: true,
+      },
+    });
+    return { data: ads };
+  }
+
   async adminToggleVip(id: string, isVip: boolean) {
     return this.prisma.advertisement.update({
       where: { id },

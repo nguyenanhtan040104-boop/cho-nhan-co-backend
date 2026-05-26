@@ -21,6 +21,12 @@ export class AdvertisementsController {
     return this.service.getAll({ category, search, location, page, limit });
   }
 
+  /** GET /advertisements/featured - Active VIP ads for rolling banner / popup */
+  @Get('featured')
+  getFeatured(@Query('limit') limit?: number) {
+    return this.service.getFeatured(+limit || 10);
+  }
+
   @Get('mine')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
