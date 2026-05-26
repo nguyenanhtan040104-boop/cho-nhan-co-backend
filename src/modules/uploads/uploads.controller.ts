@@ -14,6 +14,7 @@ import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { UploadsService } from './uploads.service';
+import { AdminGuard } from '../../common/guards/admin.guard';
 
 @ApiTags('Uploads')
 @Controller('uploads')
@@ -56,12 +57,12 @@ export class UploadsController {
     return this.uploadsService.uploadDocument(file);
   }
 
-  // =================== DELETE FILE ===================
+  // =================== DELETE FILE (admin only) ===================
   @Delete(':key')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @ApiBearerAuth()
   @HttpCode(200)
-  @ApiOperation({ summary: 'Xóa file' })
+  @ApiOperation({ summary: 'Xóa file (chỉ admin)' })
   async deleteFile(@Param('key') key: string) {
     return this.uploadsService.deleteFile(key);
   }

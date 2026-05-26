@@ -420,7 +420,9 @@ export class AuthController {
         role: user.role,
       });
 
-      return res.redirect(`${frontendUrl}/auth/google/callback?${params.toString()}`);
+      // Use URL fragment (#) instead of query params (?) so tokens never appear
+      // in server logs, Referer headers, or network proxies
+      return res.redirect(`${frontendUrl}/auth/google/callback#${params.toString()}`);
     } catch (err) {
       return res.redirect(`${frontendUrl}/profile?error=google_failed`);
     }
