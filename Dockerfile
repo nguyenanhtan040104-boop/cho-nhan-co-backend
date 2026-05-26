@@ -16,4 +16,4 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 RUN mkdir -p uploads
 EXPOSE 3001
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "echo '=== FIX STUCK MIGRATION ===' && npx prisma db execute --file prisma/fix-stuck-migration.sql --schema prisma/schema.prisma && echo '=== MIGRATE DEPLOY ===' && npx prisma migrate deploy && echo '=== STARTING APP ===' && node dist/main"]
