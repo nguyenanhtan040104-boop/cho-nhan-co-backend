@@ -11,7 +11,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node scripts/fix-blocked-ip-migration.js && prisma migrate deploy && node dist/main",
+    "start:prod": "prisma db execute --file prisma/fix-stuck-migration.sql --schema prisma/schema.prisma && prisma migrate deploy && node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
