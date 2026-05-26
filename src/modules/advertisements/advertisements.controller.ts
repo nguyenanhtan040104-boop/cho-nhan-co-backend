@@ -27,8 +27,9 @@ export class AdvertisementsController {
 
   /** GET /advertisements/featured - Active VIP ads for rolling banner / popup */
   @Get('featured')
-  getFeatured(@Query('limit') limit?: number) {
-    return this.service.getFeatured(+limit || 10);
+  getFeatured(@Query('limit') limit?: string) {
+    const parsed = limit ? Number(limit) : 10;
+    return this.service.getFeatured(Number.isFinite(parsed) && parsed > 0 ? parsed : 10);
   }
 
   @Get('mine')
