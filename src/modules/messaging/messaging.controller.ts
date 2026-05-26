@@ -63,6 +63,13 @@ export class MessagingController {
     return this.service.getBlockedUsers(userId);
   }
 
+  /** PUT /conversations/:id/read - Đánh dấu đã đọc qua REST (dùng khi vào trang chat) */
+  @Put(':id/read')
+  @HttpCode(HttpStatus.OK)
+  markRead(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.service.markRead(id, userId);
+  }
+
   /** POST /conversations/:id/messages - Gửi tin nhắn qua REST (fallback khi WebSocket down) */
   @Post(':id/messages')
   @HttpCode(HttpStatus.CREATED)
