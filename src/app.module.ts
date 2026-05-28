@@ -18,6 +18,7 @@ import { WalletModule } from './modules/wallet/wallet.module';
 import { ItemCommentsModule } from './modules/item-comments/item-comments.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { PushModule } from './modules/push/push.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { PushModule } from './modules/push/push.module';
     ItemCommentsModule,
     ReviewsModule,
     PushModule,
+    SearchModule,
   ],
 })
 export class AppModule implements NestModule {

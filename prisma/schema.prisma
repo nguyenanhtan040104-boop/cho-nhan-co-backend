@@ -543,3 +543,16 @@ model BlockedIp {
 
   @@index([ip])
 }
+
+model SearchLog {
+  id         String   @id @default(cuid())
+  query      String
+  category   String   @default("")  // 'products' | 'real-estate' | 'jobs' | 'vat-nuoi' | 'dich-vu' | '' (global)
+  count      Int      @default(1)
+  lastSeenAt DateTime @default(now()) @updatedAt
+
+  @@unique([query, category])
+  @@index([count(sort: Desc)])
+  @@index([category, count(sort: Desc)])
+  @@index([lastSeenAt])
+}
