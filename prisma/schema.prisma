@@ -225,6 +225,8 @@ model Job {
   category       String?
   salary         String?
   location       String
+  latitude       Float?
+  longitude      Float?
   employmentType String    @default("full-time")
   experience     String?
   benefits       String?
