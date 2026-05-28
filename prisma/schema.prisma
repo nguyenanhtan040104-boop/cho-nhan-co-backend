@@ -124,6 +124,8 @@ model Product {
   quantity     Int       @default(1)
   unit         String    @default("cái")
   location     String?
+  latitude     Float?
+  longitude    Float?
   contactPhone String?
   status       String    @default("active")
   isDeleted    Boolean   @default(false)

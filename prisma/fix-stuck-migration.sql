@@ -32,7 +32,11 @@ CREATE INDEX IF NOT EXISTS "SearchLog_category_count_idx"
 CREATE INDEX IF NOT EXISTS "SearchLog_lastSeenAt_idx"
     ON "SearchLog"("lastSeenAt");
 
--- ─── 3. Patch _prisma_migrations: mark our known migrations applied ──
+-- ─── 3. Product GPS columns (migration 20260528000000_product_gps) ───
+ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "latitude"  DOUBLE PRECISION;
+ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "longitude" DOUBLE PRECISION;
+
+-- ─── 4. Patch _prisma_migrations: mark our known migrations applied ──
 -- The WHERE clause is intentionally specific (by migration_name) so an
 -- unrelated future migration that legitimately fails will NOT be hidden.
 UPDATE "_prisma_migrations"
@@ -42,5 +46,6 @@ SET finished_at         = COALESCE(finished_at, NOW()),
     rolled_back_at      = NULL
 WHERE migration_name IN (
     '20260526000000_add_blocked_ip',
-    '20260527000000_add_search_log'
+    '20260527000000_add_search_log',
+    '20260528000000_product_gps'
 );

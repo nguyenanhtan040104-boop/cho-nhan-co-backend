@@ -21,6 +21,8 @@ export class ProductsService {
     unit: string;
     quantity?: number;
     location: string;
+    latitude?: number | null;
+    longitude?: number | null;
     contactPhone?: string;
     images?: string[];
   }) {
@@ -41,6 +43,8 @@ export class ProductsService {
         unit: dto.unit,
         quantity: dto.quantity || 1,
         location: dto.location,
+        latitude: typeof dto.latitude === 'number' ? dto.latitude : null,
+        longitude: typeof dto.longitude === 'number' ? dto.longitude : null,
         contactPhone: dto.contactPhone,
         // New posts require admin approval — set to pending
         status: 'pending',
@@ -236,6 +240,8 @@ export class ProductsService {
     unit?: string;
     quantity?: number;
     location?: string;
+    latitude?: number | null;
+    longitude?: number | null;
     contactPhone?: string;
     images?: string[];
   }) {
@@ -266,6 +272,8 @@ export class ProductsService {
         unit: dto.unit ?? product.unit,
         quantity: dto.quantity !== undefined ? dto.quantity : product.quantity,
         location: dto.location ?? product.location,
+        latitude: dto.latitude !== undefined ? dto.latitude : product.latitude,
+        longitude: dto.longitude !== undefined ? dto.longitude : product.longitude,
         contactPhone: dto.contactPhone !== undefined ? dto.contactPhone : product.contactPhone,
         ...(dto.images !== undefined && {
           images: {
