@@ -37,8 +37,16 @@ export class ProductsController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('sortBy') sortBy?: string,
+    @Query('nearLat') nearLat?: string,
+    @Query('nearLng') nearLng?: string,
+    @Query('radiusKm') radiusKm?: string,
   ) {
-    return this.productsService.getAll({ search, category, location, minPrice, maxPrice, page, limit, sortBy });
+    return this.productsService.getAll({
+      search, category, location, minPrice, maxPrice, page, limit, sortBy,
+      nearLat: nearLat ? Number(nearLat) : undefined,
+      nearLng: nearLng ? Number(nearLng) : undefined,
+      radiusKm: radiusKm ? Number(radiusKm) : undefined,
+    });
   }
 
   // =================== AUTH REQUIRED ===================

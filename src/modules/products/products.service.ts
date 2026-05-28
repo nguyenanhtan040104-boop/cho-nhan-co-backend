@@ -81,6 +81,9 @@ export class ProductsService {
     page?: number;
     limit?: number;
     sortBy?: string;
+    nearLat?: number;
+    nearLng?: number;
+    radiusKm?: number;
   }) {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 20;
@@ -141,7 +144,22 @@ export class ProductsService {
       orderBy = { createdAt: 'desc' };
     }
 
-    const [data, total] = await Promise.all([
+    // ─── Proximity ('Gần bạn') filter ─────────────────────────────────
+    // When the client passes nearLat/nearLng, narrow to items within a
+    // bounding box, then compute exact Haversine distance and sort by it.
+    const lat = Number(query.nearLat);
+    const lng = Number(query.nearLng);
+    const useProximity = Number.isFinite(lat) && Number.isFinite(lng);
+    if (useProximity) {
+      const radiusKm = Math.min(Math.max(Number(query.radiusKm) || 30, 1), 500);
+      // 1 degree of latitude ≈ 111km; longitude scales with cos(lat)
+      const latDelta = radiusKm / 111;
+      const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180) || 1);
+      where.latitude = { gte: lat - latDelta, lte: lat + latDelta };
+      where.longitude = { gte: lng - lngDelta, lte: lng + lngDelta };
+    }
+
+    const [rawData, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
         include: {
@@ -156,18 +174,40 @@ export class ProductsService {
           },
         },
         orderBy: [{ isVip: 'desc' }, orderBy],
-        skip,
-        take: limit,
+        // When proximity is on we need ALL matches in the bounding box so we
+        // can refine + sort by exact distance; pagination is applied after.
+        skip: useProximity ? 0 : skip,
+        take: useProximity ? 200 : limit,
       }),
       this.prisma.product.count({ where }),
     ]);
 
+    let data: any[] = rawData;
+    if (useProximity) {
+      const radiusKm = Math.min(Math.max(Number(query.radiusKm) || 30, 1), 500);
+      const annotated = rawData
+        .map((p: any) => {
+          if (p.latitude == null || p.longitude == null) return null;
+          const R = 6371;
+          const toRad = (d: number) => (d * Math.PI) / 180;
+          const dLat = toRad(p.latitude - lat);
+          const dLng = toRad(p.longitude - lng);
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat)) * Math.cos(toRad(p.latitude)) * Math.sin(dLng / 2) ** 2;
+          const distanceKm = 2 * R * Math.asin(Math.sqrt(a));
+          return { ...p, distanceKm };
+        })
+        .filter((p: any): p is any => p !== null && p.distanceKm <= radiusKm)
+        .sort((a: any, b: any) => a.distanceKm - b.distanceKm);
+      data = annotated.slice(skip, skip + limit);
+    }
+
+    const effectiveTotal = useProximity ? data.length : total;
     return {
       data,
-      total,
+      total: effectiveTotal,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(effectiveTotal / limit),
     };
   }
 
