@@ -13,6 +13,7 @@ import {
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { UploadsService } from './uploads.service';
 import { AdminGuard } from '../../common/guards/admin.guard';
 
@@ -23,7 +24,8 @@ export class UploadsController {
 
   // =================== UPLOAD SINGLE IMAGE ===================
   @Post('image')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), ThrottlerGuard)
+  @Throttle({ default: { limit: 20, ttl: 3600000 } })
   @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
@@ -35,7 +37,8 @@ export class UploadsController {
 
   // =================== UPLOAD MULTIPLE IMAGES ===================
   @Post('images')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @ApiBearerAuth()
   @UseInterceptors(FilesInterceptor('files', 10))
   @ApiConsumes('multipart/form-data')

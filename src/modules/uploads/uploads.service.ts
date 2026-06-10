@@ -2,6 +2,17 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import * as crypto from 'crypto';
+import { fileTypeFromBuffer } from 'file-type';
+
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+async function verifyImageMagicBytes(buffer: Buffer): Promise<string> {
+  const type = await fileTypeFromBuffer(buffer);
+  if (!type || !ALLOWED_MIME_TYPES.includes(type.mime)) {
+    throw new BadRequestException('File không hợp lệ. Chỉ chấp nhận JPG, PNG, WebP, GIF');
+  }
+  return type.mime;
+}
 
 @Injectable()
 export class UploadsService {
@@ -34,28 +45,24 @@ export class UploadsService {
       throw new BadRequestException('Không có file được upload');
     }
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!allowedTypes.includes(file.mimetype)) {
-      throw new BadRequestException('Chỉ hỗ trợ JPG, PNG, WebP, GIF');
-    }
-
-    // Max 10MB
+    // Max 10MB (check size first to avoid reading large buffers)
     if (file.size > 10 * 1024 * 1024) {
       throw new BadRequestException('Kích thước ảnh tối đa 10MB');
     }
 
+    // Verify actual file content via magic bytes (client-provided mimetype is untrusted)
+    const verifiedMime = await verifyImageMagicBytes(file.buffer);
+
     try {
-      // Upload thẳng lên R2 (không resize)
-      const ext = file.mimetype.split('/')[1] || 'jpg';
-      const key = `products/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
+      const ext = verifiedMime.split('/')[1] || 'jpg';
+      const key = `products/${crypto.randomUUID()}-${crypto.randomBytes(8).toString('hex')}.${ext}`;
 
       await this.s3Client.send(
         new PutObjectCommand({
           Bucket: this.bucket,
           Key: key,
           Body: file.buffer,
-          ContentType: file.mimetype,
+          ContentType: verifiedMime,
           Metadata: { 'uploaded-by': 'cho-nhan-co' },
         }),
       );

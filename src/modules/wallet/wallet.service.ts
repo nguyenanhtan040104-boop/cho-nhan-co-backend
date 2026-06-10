@@ -103,11 +103,16 @@ export class WalletService {
       const data = webhookData.data;
       if (!data) return { received: true };
 
-      // Verify signature
+      // Bắt buộc phải có signature — từ chối nếu thiếu hoặc sai
       const { signature, ...dataWithoutSig } = data;
+      if (!signature) {
+        console.warn('[PayOS] Webhook nhận được không có signature — bỏ qua');
+        return { received: true };
+      }
       const expectedSig = createSignatureOfPaymentRequest(dataWithoutSig);
-      if (signature && signature !== expectedSig) {
-        return { received: true }; // chữ ký không khớp
+      if (signature !== expectedSig) {
+        console.warn('[PayOS] Webhook signature không khớp — bỏ qua');
+        return { received: true };
       }
 
       if (webhookData.code === '00' && data.orderCode) {

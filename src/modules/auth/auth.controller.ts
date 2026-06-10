@@ -1,10 +1,13 @@
 import { Controller, Post, Get, Body, BadRequestException, UseGuards, Request, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+
+const BCRYPT_ROUNDS = 12;
 
 @Controller('auth')
 export class AuthController {
@@ -18,6 +21,8 @@ export class AuthController {
    * POST /auth/register - Đăng ký bằng username + password (email tùy chọn)
    */
   @Post('register')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 900000 } })
   async register(
     @Body()
     body: {
@@ -80,7 +85,7 @@ export class AuthController {
       }
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     const user = await this.prisma.user.create({
       data: {
@@ -153,6 +158,8 @@ export class AuthController {
    * POST /auth/resend-otp - Gửi lại OTP
    */
   @Post('resend-otp')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 900000 } })
   async resendOtp(@Body('email') email: string) {
     if (!email) {
       throw new BadRequestException('Email là bắt buộc');
@@ -170,6 +177,8 @@ export class AuthController {
    * POST /auth/login - Đăng nhập (nhận email, phone hoặc identifier)
    */
   @Post('login')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 900000 } })
   async login(
     @Body() body: { email?: string; identifier?: string; password: string },
     @Request() req,
@@ -277,6 +286,8 @@ export class AuthController {
    * POST /auth/forgot-password - Gửi OTP để reset mật khẩu
    */
   @Post('forgot-password')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 900000 } })
   async forgotPassword(@Body('email') email: string) {
     if (!email) {
       throw new BadRequestException('Email là bắt buộc');
@@ -325,7 +336,7 @@ export class AuthController {
 
     await this.otpService.verifyOtp(email, code);
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
 
     await this.prisma.user.update({
       where: { email },
@@ -360,7 +371,7 @@ export class AuthController {
     const valid = await bcrypt.compare(currentPassword, user.password);
     if (!valid) throw new BadRequestException('Mật khẩu hiện tại không đúng');
 
-    const hashed = await bcrypt.hash(newPassword, 10);
+    const hashed = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
     await this.prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
 
     return { message: 'Đổi mật khẩu thành công' };

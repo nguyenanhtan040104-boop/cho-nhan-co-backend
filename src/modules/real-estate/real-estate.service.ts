@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../../prisma/prisma.service';
 import { RealEstateType, RealEstateStatus } from '../../common/enums';
 import { checkPostLimit } from '../../common/utils/post-limit';
-import { IsString, IsNumber, IsOptional, IsEnum, IsPositive } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsPositive, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateRealEstateDto {
@@ -35,8 +35,8 @@ export class RealEstateQueryDto {
   @IsOptional() @Type(() => Number) @IsNumber() maxPrice?: number;
   @IsOptional() @Type(() => Number) @IsNumber() minArea?: number;
   @IsOptional() @Type(() => Number) @IsNumber() maxArea?: number;
-  @IsOptional() @Type(() => Number) page?: number = 1;
-  @IsOptional() @Type(() => Number) limit?: number = 12;
+  @IsOptional() @Type(() => Number) @Min(1) page?: number = 1;
+  @IsOptional() @Type(() => Number) @Min(1) @Max(100) limit?: number = 12;
   @IsOptional() @IsString() sortBy?: string;
 }
 

@@ -15,7 +15,10 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../common/enums';
 
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: {
+    origin: (process.env.FRONTEND_URL || 'https://chonhanco.com').split(',').map(o => o.trim()),
+    credentials: true,
+  },
   namespace: '/messaging',
 })
 export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -35,12 +38,18 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth?.token || client.handshake.headers?.authorization?.replace('Bearer ', '');
+      if (!token) {
+        client.emit('error', { code: 'AUTHENTICATION_REQUIRED' });
+        client.disconnect(true);
+        return;
+      }
       const payload = this.jwtService.verify(token, { secret: this.config.get('JWT_SECRET') });
       client.data.userId = payload.sub;
       this.connectedUsers.set(payload.sub, client.id);
-      console.log(`User ${payload.sub} connected`);
-    } catch {
-      client.disconnect();
+    } catch (error) {
+      console.warn(`[WS] Auth failed for ${client.id}: ${error?.message}`);
+      client.emit('error', { code: 'AUTHENTICATION_FAILED' });
+      client.disconnect(true);
     }
   }
 

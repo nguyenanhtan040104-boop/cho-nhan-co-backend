@@ -29,8 +29,8 @@ export class ForumService {
     page?: number; limit?: number; sortBy?: string;
     publishStatus?: string; approvalStatus?: string;
   }) {
-    const pageNum = Number(query.page) || 1;
-    const limitNum = Number(query.limit) || 12;
+    const pageNum = Math.max(1, Number(query.page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(query.limit) || 12));
     const { search, category, tag, sortBy = 'newest' } = query;
     const skip = (pageNum - 1) * limitNum;
 
@@ -167,7 +167,7 @@ export class ForumService {
         ...(category && { category: category as any }),
       },
       orderBy: { createdAt: 'desc' },
-      take: Number(limit) || 50,
+      take: Math.min(100, Number(limit) || 50),
       include: {
         _count: { select: { comments: true } },
       },
@@ -199,8 +199,8 @@ export class ForumService {
 
   // Approval workflow — admin xem tất cả bài (không filter PENDING nữa)
   async getPendingPosts(query: { page?: number; limit?: number; status?: string; search?: string }) {
-    const pageNum = Number(query.page) || 1;
-    const limitNum = Number(query.limit) || 20;
+    const pageNum = Math.max(1, Number(query.page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(query.limit) || 20));
     const skip = (pageNum - 1) * limitNum;
 
     const where: any = {

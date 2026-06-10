@@ -32,11 +32,49 @@ function ipToInt(ip: string): number {
   return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
 }
 
-function isIpInCidr(ip: string, cidr: string): boolean {
-  if (cidr.includes(':')) return false; // skip IPv6 for now
+function isIpv4InCidr(ip: string, cidr: string): boolean {
   const [range, bits] = cidr.split('/');
   const mask = ~(2 ** (32 - parseInt(bits)) - 1) >>> 0;
   return (ipToInt(ip) & mask) === (ipToInt(range) & mask);
+}
+
+function ipv6ToBigInt(ip: string): bigint {
+  const groups = ip.split(':');
+  let result = 0n;
+  for (const g of groups) {
+    result = (result << 16n) + BigInt(parseInt(g || '0', 16));
+  }
+  return result;
+}
+
+function expandIpv6(ip: string): string {
+  if (ip.includes('::')) {
+    const [left, right] = ip.split('::');
+    const leftGroups = left ? left.split(':') : [];
+    const rightGroups = right ? right.split(':') : [];
+    const missing = 8 - leftGroups.length - rightGroups.length;
+    const middle = Array(missing).fill('0');
+    return [...leftGroups, ...middle, ...rightGroups].join(':');
+  }
+  return ip;
+}
+
+function isIpv6InCidr(ip: string, cidr: string): boolean {
+  try {
+    const [range, bits] = cidr.split('/');
+    const prefixLen = BigInt(parseInt(bits));
+    const ipInt = ipv6ToBigInt(expandIpv6(ip));
+    const rangeInt = ipv6ToBigInt(expandIpv6(range));
+    const mask = ((1n << 128n) - 1n) ^ ((1n << (128n - prefixLen)) - 1n);
+    return (ipInt & mask) === (rangeInt & mask);
+  } catch {
+    return false;
+  }
+}
+
+function isIpInCidr(ip: string, cidr: string): boolean {
+  if (cidr.includes(':')) return isIpv6InCidr(ip, cidr);
+  return isIpv4InCidr(ip, cidr);
 }
 
 function isCloudflareIp(ip: string): boolean {

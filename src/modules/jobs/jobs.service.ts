@@ -41,8 +41,8 @@ export class JobsService {
     location?: string; isUrgent?: boolean; page?: number; limit?: number; postType?: string;
   }) {
     const { search, type, category, location } = query;
-    const pageNum = Number(query.page) || 1;
-    const limitNum = Number(query.limit) || 12;
+    const pageNum = Math.max(1, Number(query.page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(query.limit) || 12));
     const skip = (pageNum - 1) * limitNum;
 
     // Convert isUrgent từ string sang boolean (query params luôn là string)
