@@ -1,6 +1,6 @@
 # Render Blueprint — Chợ Nhân Cơ backend (NestJS + Prisma)
-# Database: Neon (external Postgres) — set DATABASE_URL in the dashboard.
-# Redis is NOT required (no BullModule registered).
+# Database: Supabase Postgres — set DATABASE_URL (pooler 6543) and DIRECT_URL
+# (direct 5432) in the dashboard. Redis is NOT required (no BullModule).
 services:
   - type: web
     name: cho-nhan-co-backend
@@ -16,7 +16,9 @@ services:
       - key: FRONTEND_URL
         value: https://chonhanco.com
       # ── Secrets: set these in the Render dashboard (sync:false) ──────────
-      - key: DATABASE_URL          # Neon connection string (?sslmode=require)
+      - key: DATABASE_URL          # Supabase POOLER: ...pooler.supabase.com:6543/postgres?pgbouncer=true
+        sync: false
+      - key: DIRECT_URL            # Supabase DIRECT: ...supabase.com:5432/postgres  (for migrations)
         sync: false
       - key: APP_URL               # your Render URL, e.g. https://cho-nhan-co-backend.onrender.com
         sync: false
