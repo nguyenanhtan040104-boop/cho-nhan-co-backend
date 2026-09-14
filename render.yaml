@@ -1,0 +1,59 @@
+# Render Blueprint — Chợ Nhân Cơ backend (NestJS + Prisma)
+# Database: Neon (external Postgres) — set DATABASE_URL in the dashboard.
+# Redis is NOT required (no BullModule registered).
+services:
+  - type: web
+    name: cho-nhan-co-backend
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        value: https://chonhanco.com
+      # ── Secrets: set these in the Render dashboard (sync:false) ──────────
+      - key: DATABASE_URL          # Neon connection string (?sslmode=require)
+        sync: false
+      - key: APP_URL               # your Render URL, e.g. https://cho-nhan-co-backend.onrender.com
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      # SMS (eSMS) — optional; leave unset if not used
+      - key: ESMS_API_KEY
+        sync: false
+      - key: ESMS_SECRET_KEY
+        sync: false
+      - key: ESMS_BRAND_NAME
+        sync: false
+      # Email (SMTP)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      # Cloudflare R2 (image storage)
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY
+        sync: false
+      - key: R2_SECRET_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false
