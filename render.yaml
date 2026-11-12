@@ -9,7 +9,8 @@ services:
     plan: free
     region: singapore
     branch: main
-    buildCommand: npm install && npm run build
+    # NODE_ENV=production would skip devDependencies (typescript, @types/*) and break `nest build`
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm run start:prod
     envVars:
       - key: NODE_ENV
