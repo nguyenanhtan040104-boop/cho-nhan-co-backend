@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Body, BadRequestException, UseGuards, Request, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
+import { ProxyThrottlerGuard } from '../../common/guards/proxy-throttler.guard';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
@@ -21,7 +22,7 @@ export class AuthController {
    * POST /auth/register - Đăng ký bằng username + password (email tùy chọn)
    */
   @Post('register')
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(ProxyThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 900000 } })
   async register(
     @Body()
@@ -158,7 +159,7 @@ export class AuthController {
    * POST /auth/resend-otp - Gửi lại OTP
    */
   @Post('resend-otp')
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(ProxyThrottlerGuard)
   @Throttle({ default: { limit: 3, ttl: 900000 } })
   async resendOtp(@Body('email') email: string) {
     if (!email) {
@@ -177,7 +178,7 @@ export class AuthController {
    * POST /auth/login - Đăng nhập (nhận email, phone hoặc identifier)
    */
   @Post('login')
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(ProxyThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 900000 } })
   async login(
     @Body() body: { email?: string; identifier?: string; password: string },
@@ -286,7 +287,7 @@ export class AuthController {
    * POST /auth/forgot-password - Gửi OTP để reset mật khẩu
    */
   @Post('forgot-password')
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(ProxyThrottlerGuard)
   @Throttle({ default: { limit: 3, ttl: 900000 } })
   async forgotPassword(@Body('email') email: string) {
     if (!email) {

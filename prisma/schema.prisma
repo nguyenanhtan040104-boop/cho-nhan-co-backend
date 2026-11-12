@@ -120,7 +120,7 @@ model Product {
   id           String    @id @default(cuid())
   title        String
   description  String?
-  price        Decimal   @db.Decimal(10, 2)
+  price        Decimal   @db.Decimal(15, 2)
   category     String
   quantity     Int       @default(1)
   unit         String    @default("cái")
@@ -166,7 +166,7 @@ model RealEstate {
   id          String    @id @default(cuid())
   title       String
   description String?
-  price       Decimal   @db.Decimal(10, 2)
+  price       Decimal   @db.Decimal(15, 2)
   area        Decimal   @db.Decimal(8, 2)
   location    String?
   address     String?
@@ -209,7 +209,7 @@ model RealEstateImage {
 
 model RealEstatePriceHistory {
   id           String     @id @default(cuid())
-  price        Decimal    @db.Decimal(10, 2)
+  price        Decimal    @db.Decimal(15, 2)
   changedAt    DateTime   @default(now())
 
   realEstateId String

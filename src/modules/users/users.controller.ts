@@ -158,6 +158,9 @@ export class UsersController {
     @Param('id') id: string,
     @Body() body: { banned: boolean; duration?: '1d' | '7d' | '30d' | 'permanent' },
   ) {
+    if (typeof body?.banned !== 'boolean') {
+      throw new BadRequestException('Thiếu trường banned (true hoặc false)');
+    }
     let lockedUntil: Date | null = null;
     if (body.banned) {
       if (!body.duration || body.duration === 'permanent') {
