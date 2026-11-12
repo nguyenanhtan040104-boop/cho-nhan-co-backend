@@ -1,6 +1,7 @@
 # Render Blueprint — Chợ Nhân Cơ backend (NestJS + Prisma)
 # Database: Supabase Postgres — set DATABASE_URL (pooler 6543) and DIRECT_URL
 # (direct 5432) in the dashboard. Redis is NOT required (no BullModule).
+# Every key with sync:false is a secret/value you type in the Render dashboard.
 services:
   - type: web
     name: cho-nhan-co-backend
@@ -13,49 +14,71 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+
+      # ── App URLs ────────────────────────────────────────────────────────
+      # Frontend origin(s) allowed by CORS. Comma-separated, exact origin,
+      # no trailing slash. Use the stable Vercel production URL
+      # (e.g. https://cho-nhan-co-frontend-txj2.vercel.app) and, later, the new domain.
       - key: FRONTEND_URL
-        value: https://chonhanco.com
-      # ── Secrets: set these in the Render dashboard (sync:false) ──────────
-      - key: DATABASE_URL          # Supabase POOLER: ...pooler.supabase.com:6543/postgres?pgbouncer=true
-        sync: false
-      - key: DIRECT_URL            # Supabase DIRECT: ...supabase.com:5432/postgres  (for migrations)
         sync: false
       - key: APP_URL               # your Render URL, e.g. https://cho-nhan-co-backend.onrender.com
         sync: false
-      - key: JWT_SECRET
+
+      # ── Database (Supabase) ─────────────────────────────────────────────
+      - key: DATABASE_URL          # POOLER: ...pooler.supabase.com:6543/postgres?pgbouncer=true
+        sync: false
+      - key: DIRECT_URL            # DIRECT: ...supabase.com:5432/postgres (used by prisma migrate deploy)
+        sync: false
+
+      # ── Auth ────────────────────────────────────────────────────────────
+      - key: JWT_SECRET            # long random string
         sync: false
       - key: JWT_EXPIRES_IN
         value: 15m
-      - key: JWT_REFRESH_SECRET
+      - key: JWT_REFRESH_SECRET    # a different long random string
         sync: false
       - key: JWT_REFRESH_EXPIRES_IN
         value: 7d
-      # SMS (eSMS) — optional; leave unset if not used
-      - key: ESMS_API_KEY
+
+      # ── REQUIRED TO BOOT: src/main.ts exits if any PAYOS_* is missing ───
+      # Use real PayOS keys, or placeholder text if payments are not used yet.
+      - key: PAYOS_CLIENT_ID
         sync: false
-      - key: ESMS_SECRET_KEY
+      - key: PAYOS_API_KEY
         sync: false
-      - key: ESMS_BRAND_NAME
+      - key: PAYOS_CHECKSUM_KEY
         sync: false
-      # Email (SMTP)
-      - key: SMTP_HOST
+
+      # ── Email OTP (Resend) — read by src/modules/auth/otp.service.ts ────
+      - key: RESEND_API_KEY
         sync: false
-      - key: SMTP_PORT
+      - key: RESEND_FROM_EMAIL
         sync: false
-      - key: SMTP_USER
+
+      # ── Image storage (Cloudflare R2) — read by src/modules/uploads ─────
+      - key: CLOUDFLARE_ACCOUNT_ID
         sync: false
-      - key: SMTP_PASS
+      - key: CLOUDFLARE_R2_BUCKET
         sync: false
-      - key: SMTP_FROM
+      - key: CLOUDFLARE_R2_URL     # public base URL of the bucket
         sync: false
-      # Cloudflare R2 (image storage)
-      - key: R2_ACCOUNT_ID
+      - key: CLOUDFLARE_ACCESS_KEY_ID
         sync: false
-      - key: R2_ACCESS_KEY
+      - key: CLOUDFLARE_SECRET_ACCESS_KEY
         sync: false
-      - key: R2_SECRET_KEY
+
+      # ── Optional features ───────────────────────────────────────────────
+      # Web push notifications (src/modules/push)
+      - key: VAPID_PUBLIC_KEY
         sync: false
-      - key: R2_BUCKET
+      - key: VAPID_PRIVATE_KEY
         sync: false
-      - key: R2_PUBLIC_URL
+      - key: VAPID_EMAIL
+        sync: false
+      # Google sign-in (src/modules/auth/google.strategy.ts)
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
         sync: false
