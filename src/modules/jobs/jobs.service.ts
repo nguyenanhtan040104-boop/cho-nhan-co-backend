@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../../prisma/prisma.service';
 import { JobType, PostStatus } from '../../common/enums';
 import { checkPostLimit } from '../../common/utils/post-limit';
-import { IsString, IsOptional, IsEnum, IsBoolean, IsArray, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, IsArray, IsNumber, IsDateString } from 'class-validator';
 
 export class CreateJobDto {
   @IsString() title: string;
@@ -26,6 +26,10 @@ export class UpdateJobDto {
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsString() salary?: string;
   @IsOptional() @IsString() location?: string;
+  @IsOptional() @IsString() category?: string;
+  @IsOptional() @IsString() experience?: string;
+  @IsOptional() @IsString() benefits?: string;
+  @IsOptional() @IsDateString() deadline?: string;
   @IsOptional() @IsNumber() latitude?: number | null;
   @IsOptional() @IsNumber() longitude?: number | null;
   @IsOptional() @IsBoolean() isUrgent?: boolean;
@@ -104,7 +108,11 @@ export class JobsService {
 
   async update(id: string, userId: string, dto: UpdateJobDto) {
     await this.checkOwnership(id, userId);
-    return this.prisma.job.update({ where: { id }, data: dto });
+    const { deadline, ...rest } = dto;
+    return this.prisma.job.update({
+      where: { id },
+      data: { ...rest, ...(deadline ? { deadline: new Date(deadline) } : {}) },
+    });
   }
 
   async markUrgent(id: string, userId: string) {
