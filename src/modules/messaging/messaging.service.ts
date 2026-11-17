@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MessageType } from '../../common/enums';
 
@@ -51,6 +51,11 @@ export class MessagingService {
   }
 
   async getOrCreateConversation(userId: string, targetUserId: string) {
+    if (!targetUserId) throw new BadRequestException('Thiếu người nhận');
+    if (targetUserId === userId) throw new BadRequestException('Không thể tự nhắn tin cho chính mình');
+    const target = await this.prisma.user.findUnique({ where: { id: targetUserId }, select: { id: true } });
+    if (!target) throw new NotFoundException('Không tìm thấy người dùng');
+    await this.assertNotBlocked(userId, targetUserId);
     // Tìm conversation đã có
     const existing = await this.prisma.conversationParticipant.findFirst({
       where: {
@@ -127,13 +132,22 @@ export class MessagingService {
     if (!participant) throw new ForbiddenException();
 
     const receiverId = participant.conversation.participants[0]?.userId;
+    if (receiverId) await this.assertNotBlocked(userId, receiverId);
+
+    const type = (data.type as MessageType) || MessageType.TEXT;
+    if (type === MessageType.TEXT) {
+      const text = (data.content || '').trim();
+      if (!text) throw new BadRequestException('Tin nhắn trống');
+      if (text.length > 2000) throw new BadRequestException('Tin nhắn quá dài (tối đa 2000 ký tự)');
+      data.content = text;
+    }
 
     const message = await this.prisma.message.create({
       data: {
         conversationId: data.conversationId,
         senderId: userId,
         content: data.content,
-        type: (data.type as MessageType) || MessageType.TEXT,
+        type,
         fileUrl: data.fileUrl,
       },
       include: { sender: { select: { id: true, username: true, avatarUrl: true } } },
@@ -193,6 +207,15 @@ export class MessagingService {
       },
     });
     return { count };
+  }
+
+  // Either side blocking the other stops new chats and new messages
+  private async assertNotBlocked(a: string, b: string) {
+    const blocked = await this.prisma.userBlock.findFirst({
+      where: { OR: [{ blockerId: a, blockedId: b }, { blockerId: b, blockedId: a }] },
+      select: { blockerId: true },
+    });
+    if (blocked) throw new ForbiddenException('Không thể nhắn tin với người dùng này');
   }
 
   async blockUser(userId: string, targetUserId: string) {
